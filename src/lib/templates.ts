@@ -32,6 +32,7 @@ const normalizeTemplate = (input: {
   layout: input.data.layout,
   images: input.data.images,
   stickers: input.data.stickers,
+  texts: input.data.texts ?? [],
   overlayDataUrl: input.overlay_data_url ?? input.data.overlayDataUrl,
   createdAt: input.created_at,
   updatedAt: input.updated_at,

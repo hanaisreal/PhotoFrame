@@ -3,24 +3,28 @@ import type { FrameLayout, FrameSlot } from "@/types/frame";
 
 const nanoid = customAlphabet("1234567890abcdefghijklmnopqrstuvwxyz", 10);
 
-const CANVAS_WIDTH = 1080;
-const CANVAS_HEIGHT = 1920;
+const CANVAS_WIDTH = 720;
+const CANVAS_HEIGHT = 1280;
 
 export const createDefaultVerticalLayout = (
   slotCount = 4,
 ): FrameLayout => {
-  const padding = 64;
-  const gutter = 24;
+  const padding = 32;
+  const gutter = 16;
   const frameThickness = 24;
+  const slotWidthRatio = 3;
+  const slotHeightRatio = 4;
   const availableHeight =
     CANVAS_HEIGHT - padding * 2 - gutter * (slotCount - 1);
   const slotHeight = availableHeight / slotCount;
-  const slotWidth = CANVAS_WIDTH - padding * 2;
+  const rawSlotWidth = slotHeight * (slotWidthRatio / slotHeightRatio);
+  const slotWidth = Math.min(rawSlotWidth, CANVAS_WIDTH - padding * 2);
+  const horizontalPadding = (CANVAS_WIDTH - slotWidth) / 2;
 
   const slots: FrameSlot[] = Array.from({ length: slotCount }).map(
     (_, index) => ({
       id: `slot-${index + 1}-${nanoid(5)}`,
-      x: padding,
+      x: horizontalPadding,
       y: padding + index * (slotHeight + gutter),
       width: slotWidth,
       height: slotHeight,

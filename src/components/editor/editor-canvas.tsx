@@ -9,9 +9,11 @@ import {
   Group,
   Text,
   Transformer,
+  Line,
 } from "react-konva";
 
 import { EditableImage } from "@/components/editor/editable-image";
+import { EditableText } from "@/components/editor/editable-text";
 import { useEditorStore } from "@/state/editor-store";
 import type { ImageElement, StickerElement } from "@/types/frame";
 
@@ -19,20 +21,23 @@ interface EditorCanvasProps {
   stageRef: React.RefObject<Konva.Stage>;
 }
 
-const SLOT_BACKGROUND = "#f5f5f5";
+const SLOT_BACKGROUND = "#ffffff";
+const MAX_CANVAS_SCALE = 0.45;
 
 export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const layout = useEditorStore((state) => state.layout);
   const images = useEditorStore((state) => state.images);
   const stickers = useEditorStore((state) => state.stickers);
+  const texts = useEditorStore((state) => state.texts);
   const selection = useEditorStore((state) => state.selection);
   const setSelection = useEditorStore((state) => state.setSelection);
   const updateImage = useEditorStore((state) => state.updateImage);
   const updateSticker = useEditorStore((state) => state.updateSticker);
+  const updateTextElement = useEditorStore((state) => state.updateText);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const [scale, setScale] = useState(0.25);
+  const [scale, setScale] = useState(MAX_CANVAS_SCALE);
 
   useEffect(() => {
     const updateScale = () => {
@@ -40,12 +45,16 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
       if (!container) {
         return;
       }
-      const width = container.offsetWidth;
-      const height = container.offsetHeight;
-
+      const width = container.offsetWidth * 0.9;
+      const height =
+        (container.offsetHeight || window.innerHeight) * 0.8;
       const scaleByWidth = width / layout.canvas.width;
       const scaleByHeight = height / layout.canvas.height;
-      const nextScale = Math.min(scaleByWidth, scaleByHeight, 0.8);
+      const nextScale = Math.min(
+        scaleByWidth,
+        scaleByHeight,
+        MAX_CANVAS_SCALE,
+      );
       setScale(nextScale);
     };
 
@@ -144,22 +153,41 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
       />
     ));
 
+  const renderTexts = () =>
+    texts.map((text) => (
+      <EditableText
+        key={text.id}
+        nodeId={`text-${text.id}`}
+        element={text}
+        isSelected={selection.id === text.id && selection.kind === "text"}
+        onSelect={() => setSelection({ id: text.id, kind: "text" })}
+        onChange={(next) => updateTextElement(text.id, next)}
+      />
+    ));
+
+  const scaledWidth = layout.canvas.width * scale;
+  const scaledHeight = layout.canvas.height * scale;
+  const stageOffsetX = (layout.canvas.width - scaledWidth) / 2;
+  const stageOffsetY = (layout.canvas.height - scaledHeight) / 2;
+
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full rounded-3xl bg-slate-100 p-4"
+      className="relative flex w-full items-center justify-center overflow-hidden"
+      style={{ height: "calc(100vh - 180px)", maxHeight: "720px" }}
     >
-      <div className="rounded-3xl border border-slate-300/70 bg-white shadow-inner">
-        <Stage
-          width={layout.canvas.width}
-          height={layout.canvas.height}
-          scaleX={scale}
-          scaleY={scale}
-          ref={stageRef}
-          onMouseDown={handleStageDeselection}
-          onTouchStart={handleStageDeselection}
-        >
-          <Layer>
+      <Stage
+        width={layout.canvas.width}
+        height={layout.canvas.height}
+        scaleX={scale}
+        scaleY={scale}
+        x={stageOffsetX}
+        y={stageOffsetY}
+        ref={stageRef}
+        onMouseDown={handleStageDeselection}
+        onTouchStart={handleStageDeselection}
+      >
+        <Layer>
             <Rect
               x={0}
               y={0}
@@ -190,8 +218,22 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
                   cornerRadius={layout.frame.cornerRadius}
                   name="slot-background"
                   fill={SLOT_BACKGROUND}
-                  stroke={layout.frame.color}
-                  strokeWidth={layout.frame.thickness / 3}
+                  stroke="transparent"
+                  strokeWidth={0}
+                  listening={false}
+                />
+                <Line
+                  points={[0, 0, slot.width, slot.height]}
+                  stroke="#d4d4d8"
+                  strokeWidth={2}
+                  dash={[10, 6]}
+                  listening={false}
+                />
+                <Line
+                  points={[slot.width, 0, 0, slot.height]}
+                  stroke="#d4d4d8"
+                  strokeWidth={2}
+                  dash={[10, 6]}
                   listening={false}
                 />
                 {renderSlotImages(slot.id)}
@@ -199,6 +241,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
             ))}
             {renderFloatingImages()}
             {renderStickers()}
+            {renderTexts()}
             <Rect
               x={0}
               y={0}
@@ -233,9 +276,8 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
               ]}
               anchorCornerRadius={4}
             />
-          </Layer>
-        </Stage>
-      </div>
+        </Layer>
+      </Stage>
     </div>
   );
 };

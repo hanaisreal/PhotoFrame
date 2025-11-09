@@ -62,6 +62,19 @@ export interface StickerElement {
   rotation: number;
 }
 
+export interface TextElement {
+  id: string;
+  content: string;
+  x: number;
+  y: number;
+  width: number;
+  align: "left" | "center" | "right";
+  fontSize: number;
+  fontFamily: string;
+  color: string;
+  rotation: number;
+}
+
 export interface FrameTemplate {
   id?: string;
   slug: string;
@@ -70,6 +83,7 @@ export interface FrameTemplate {
   layout: FrameLayout;
   images: ImageElement[];
   stickers: StickerElement[];
+  texts: TextElement[];
   overlayDataUrl?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -82,6 +96,7 @@ export interface TemplatePersistencePayload {
   layout: FrameLayout;
   images: ImageElement[];
   stickers: StickerElement[];
+  texts: TextElement[];
   overlayDataUrl: string;
   createdAt?: string;
   updatedAt?: string;

@@ -6,11 +6,12 @@ import type {
   FrameLayout,
   ImageElement,
   StickerElement,
+  TextElement,
 } from "@/types/frame";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 10);
 
-export type EditorElementKind = "image" | "sticker" | "slot" | null;
+export type EditorElementKind = "image" | "sticker" | "text" | "slot" | null;
 
 export interface SelectionState {
   id: string | null;
@@ -23,6 +24,7 @@ interface EditorState {
   layout: FrameLayout;
   images: ImageElement[];
   stickers: StickerElement[];
+  texts: TextElement[];
   overlayDataUrl?: string;
   selection: SelectionState;
   slotCount: number;
@@ -53,6 +55,9 @@ interface EditorActions {
     input: Partial<Omit<StickerElement, "id">>,
   ) => void;
   removeSticker: (id: string) => void;
+  addText: (input?: Partial<Omit<TextElement, "id">>) => string;
+  updateText: (id: string, input: Partial<TextElement>) => void;
+  removeText: (id: string) => void;
   setOverlayDataUrl: (dataUrl: string | undefined) => void;
   reset: () => void;
   loadTemplate: (params: {
@@ -73,6 +78,7 @@ const initialState: EditorState = {
   layout: initialLayout,
   images: [],
   stickers: [],
+  texts: [],
   overlayDataUrl: undefined,
   selection: { id: null, kind: null },
   slotCount: 4,
@@ -118,11 +124,13 @@ export const useEditorStore = create<EditorState & EditorActions>(
       });
 
       const currentStickers = get().stickers;
+      const currentTexts = get().texts;
       set({
         layout: nextLayout,
         slotCount: count,
         images: currentImages,
         stickers: currentStickers,
+        texts: currentTexts,
         selection: { id: null, kind: null },
         isDirty: true,
       });
@@ -200,6 +208,54 @@ export const useEditorStore = create<EditorState & EditorActions>(
             : state.selection,
         isDirty: true,
       })),
+    addText: (input) => {
+      const id = input?.id ?? `txt-${nanoid(8)}`;
+      const defaults: Omit<TextElement, "id"> = {
+        content: "새 텍스트",
+        x: 40,
+        y: 40,
+        width: 400,
+        align: "center",
+        fontSize: 48,
+        fontFamily: "var(--font-geist-sans)",
+        color: "#111111",
+        rotation: 0,
+      };
+      set((state) => ({
+        texts: [
+          ...state.texts,
+          {
+            ...defaults,
+            ...input,
+            id,
+          },
+        ],
+        selection: { id, kind: "text" },
+        isDirty: true,
+      }));
+      return id;
+    },
+    updateText: (id, input) =>
+      set((state) => ({
+        texts: state.texts.map((text) =>
+          text.id === id
+            ? {
+                ...text,
+                ...input,
+              }
+            : text,
+        ),
+        isDirty: true,
+      })),
+    removeText: (id) =>
+      set((state) => ({
+        texts: state.texts.filter((text) => text.id !== id),
+        selection:
+          state.selection.id === id && state.selection.kind === "text"
+            ? { id: null, kind: null }
+            : state.selection,
+        isDirty: true,
+      })),
     setOverlayDataUrl: (overlayDataUrl) =>
       set({ overlayDataUrl, isDirty: true }),
     reset: () => set(initialState),
@@ -209,6 +265,7 @@ export const useEditorStore = create<EditorState & EditorActions>(
       layout,
       images,
       stickers,
+      texts,
       overlayDataUrl,
     }) =>
       set({
@@ -217,6 +274,7 @@ export const useEditorStore = create<EditorState & EditorActions>(
         layout,
         images,
         stickers,
+        texts,
         overlayDataUrl,
         selection: { id: null, kind: null },
         slotCount: layout.slots.length,
@@ -228,3 +286,4 @@ export const useEditorStore = create<EditorState & EditorActions>(
 export const selectCurrentLayout = (state: EditorState) => state.layout;
 export const selectImages = (state: EditorState) => state.images;
 export const selectStickers = (state: EditorState) => state.stickers;
+export const selectTexts = (state: EditorState) => state.texts;
