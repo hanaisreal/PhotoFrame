@@ -3,29 +3,40 @@ import type { FrameLayout, FrameSlot } from "@/types/frame";
 
 const nanoid = customAlphabet("1234567890abcdefghijklmnopqrstuvwxyz", 10);
 
-const CANVAS_WIDTH = 720;
-const CANVAS_HEIGHT = 1280;
+const REAL_STRIP_WIDTH_MM = 54;
+const REAL_STRIP_HEIGHT_MM = 150;
+const MM_TO_PX_SCALE = 10;
+
+const CANVAS_WIDTH = REAL_STRIP_WIDTH_MM * MM_TO_PX_SCALE; // 540px
+const CANVAS_HEIGHT = REAL_STRIP_HEIGHT_MM * MM_TO_PX_SCALE; // 1500px
 
 export const createDefaultVerticalLayout = (
   slotCount = 4,
 ): FrameLayout => {
-  const padding = 32;
-  const gutter = 16;
-  const frameThickness = 24;
-  const slotWidthRatio = 3;
-  const slotHeightRatio = 4;
-  const availableHeight =
-    CANVAS_HEIGHT - padding * 2 - gutter * (slotCount - 1);
-  const slotHeight = availableHeight / slotCount;
-  const rawSlotWidth = slotHeight * (slotWidthRatio / slotHeightRatio);
-  const slotWidth = Math.min(rawSlotWidth, CANVAS_WIDTH - padding * 2);
-  const horizontalPadding = (CANVAS_WIDTH - slotWidth) / 2;
+  const padding = 18;
+  const frameThickness = 12;
+
+  const sideFrameMargin = 20;
+  const slotWidth = Math.max(
+    CANVAS_WIDTH - padding * 2 - sideFrameMargin,
+    CANVAS_WIDTH * 0.6,
+  );
+  const slotX = (CANVAS_WIDTH - slotWidth) / 2;
+
+  const slotGap = 40;
+  const desiredSlotHeight = 280;
+  const maxSlotHeight =
+    (CANVAS_HEIGHT - slotGap * (slotCount - 1)) / slotCount;
+  const slotHeight = Math.min(desiredSlotHeight, maxSlotHeight);
+  const totalSlotsHeight = slotHeight * slotCount + slotGap * (slotCount - 1);
+  const topOffset = Math.max((CANVAS_HEIGHT - totalSlotsHeight) / 2, padding);
+  const gutter = slotGap;
 
   const slots: FrameSlot[] = Array.from({ length: slotCount }).map(
     (_, index) => ({
       id: `slot-${index + 1}-${nanoid(5)}`,
-      x: horizontalPadding,
-      y: padding + index * (slotHeight + gutter),
+      x: slotX,
+      y: topOffset + index * (slotHeight + slotGap),
       width: slotWidth,
       height: slotHeight,
     }),
@@ -41,9 +52,9 @@ export const createDefaultVerticalLayout = (
     frame: {
       color: "#111111",
       thickness: frameThickness,
-      cornerRadius: 20,
+      cornerRadius: 0,
       gutter,
-      backgroundColor: "#ffffff",
+      backgroundColor: "#000000",
     },
     bottomText: {
       content: "Happy Birthday!",
@@ -51,7 +62,7 @@ export const createDefaultVerticalLayout = (
       fontSize: 64,
       fontFamily: "var(--font-geist-sans)",
       letterSpacing: 4,
-      offsetY: 120,
+      offsetY: 90,
     },
     slots,
   };
