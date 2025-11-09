@@ -20,6 +20,9 @@
 # production
 /build
 
+# local template files (using supabase instead)
+/.dist
+
 # misc
 .DS_Store
 *.pem
