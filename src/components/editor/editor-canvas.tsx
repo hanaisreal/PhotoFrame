@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import {
   Stage,
@@ -38,6 +38,47 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const [scale, setScale] = useState(MAX_CANVAS_SCALE);
+
+  type TransformerBoundBox = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+  };
+
+  const transformerAnchors = useMemo(() => {
+    if (selection.kind === "text") {
+      return [
+        "top-left",
+        "top-right",
+        "bottom-left",
+        "bottom-right",
+        "middle-left",
+        "middle-right",
+        "top-center",
+        "bottom-center",
+      ];
+    }
+    return ["top-left", "top-right", "bottom-left", "bottom-right"];
+  }, [selection.kind]);
+
+  const transformerBoundBox = useCallback(
+    (oldBox: TransformerBoundBox, newBox: TransformerBoundBox) => {
+      if (selection.kind === "text") {
+        const minWidth = 60;
+        const minHeight = 30;
+        if (
+          Math.abs(newBox.width) < minWidth ||
+          Math.abs(newBox.height) < minHeight
+        ) {
+          return oldBox;
+        }
+      }
+      return newBox;
+    },
+    [selection.kind],
+  );
 
   useEffect(() => {
     const updateScale = () => {
@@ -268,12 +309,8 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
             <Transformer
               ref={transformerRef}
               rotateEnabled
-              enabledAnchors={[
-                "top-left",
-                "top-right",
-                "bottom-left",
-                "bottom-right",
-              ]}
+              enabledAnchors={transformerAnchors}
+              boundBoxFunc={transformerBoundBox}
               anchorCornerRadius={4}
             />
         </Layer>

@@ -108,7 +108,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
   const [videoAspectRatio, setVideoAspectRatio] = useState(DEFAULT_VIDEO_RATIO);
   const [isVideoReady, setIsVideoReady] = useState(false);
 
-  const overlayUrl = template.overlayDataUrl;
   const slots = useMemo(() => template.layout.slots, [template.layout.slots]);
   const resetSessionState = useCallback(() => {
     setCapturedShots(Array(captureCount).fill(""));
@@ -1115,20 +1114,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
         }),
       );
 
-      if (overlayUrl) {
-        const overlay = await loadImage(overlayUrl);
-        ctx.drawImage(
-          overlay,
-          0,
-          0,
-          overlay.width,
-          overlay.height,
-          0,
-          0,
-          template.layout.canvas.width,
-          template.layout.canvas.height,
-        );
-      }
+      // Skip drawing legacy overlay assets to ensure the final PNG reflects the edited layout only
 
       const final = canvas.toDataURL("image/png");
       setFinalImage(final);
@@ -1142,7 +1128,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
     }
   }, [
     capturedShots,
-    overlayUrl,
     slotAssignments,
     slots,
     template.layout.canvas.height,
@@ -1378,11 +1363,11 @@ export const BoothView = ({ template }: BoothViewProps) => {
                     return (
                       <div
                         key={slot.id}
-                        className={`absolute z-20 flex cursor-pointer items-center justify-center overflow-hidden border-2 transition ${
+                        className={`absolute z-20 flex cursor-pointer items-center justify-center overflow-hidden transition ${
                           assignedImage
-                            ? "border-white"
-                            : "border-dashed border-white/70 bg-white/70"
-                        } ${isActive ? "ring-2 ring-slate-900" : ""}`}
+                            ? ""
+                            : "border border-dashed border-white/50 bg-white/20"
+                        } ${isActive ? "ring-2 ring-white/80" : ""}`}
                         style={{
                           left: `${slotLeft}%`,
                           top: `${slotTop}%`,
@@ -1413,7 +1398,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                             </button>
                           </>
                         ) : (
-                          <span className="select-none px-2 text-center text-[10px] font-semibold text-slate-500">
+                          <span className="select-none px-2 text-center text-[10px] font-semibold text-white/70">
                             사진을 드래그해서 배치하세요
                           </span>
                         )}
@@ -1421,13 +1406,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                     );
                   })}
                 </div>
-                {overlayUrl ? (
-                  <img
-                    src={overlayUrl}
-                    alt="프레임 오버레이"
-                    className="pointer-events-none absolute inset-0 z-30 h-full w-full object-fill"
-                  />
-                ) : null}
+                {/* Overlay hidden during arrangement to keep slot drop targets clear */}
               </div>
             </div>
 
@@ -1638,20 +1617,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
               </p>
             ) : null}
 
-            {/* Debug info */}
-            <div className="mt-2 rounded-xl bg-yellow-50 p-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div>Camera: {hasCameraAccess ? '✅' : '❌'}</div>
-                <div>Video Ready: {isVideoReady ? '✅' : '❌'}</div>
-                <div>Stream: {streamRef.current?.active ? '✅' : '❌'}</div>
-                <div>Requesting: {isRequestingCamera ? '⏳' : '✅'}</div>
-                <div>Video Size: {videoRef.current?.videoWidth || 0}x{videoRef.current?.videoHeight || 0}</div>
-                <div>Paused: {videoRef.current?.paused ? '❌' : '✅'}</div>
-                <div>Ready State: {videoRef.current?.readyState || 0}</div>
-                <div>Has SrcObject: {videoRef.current?.srcObject ? '✅' : '❌'}</div>
-              </div>
-              {streamError && <div className="mt-1 text-red-600">Error: {streamError}</div>}
-            </div>
+            {/* Debug info removed */}
           </div>
 
           {streamError ? (

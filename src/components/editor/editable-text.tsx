@@ -31,11 +31,15 @@ export const EditableText = ({
 
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
-    const nextWidth = Math.max(80, element.width * scaleX);
-    const nextFontSize = Math.max(8, element.fontSize * scaleY);
 
+    const nextWidth = Math.max(80, node.width() * Math.abs(scaleX));
+    const nextFontSize = Math.max(8, node.fontSize() * Math.abs(scaleY));
+
+    node.width(nextWidth);
+    node.fontSize(nextFontSize);
     node.scaleX(1);
     node.scaleY(1);
+    node.getLayer()?.batchDraw();
 
     onChange({
       x: node.x(),
