@@ -43,7 +43,6 @@ export const EditableText = ({
       rotation: node.rotation(),
       width: nextWidth,
       fontSize: nextFontSize,
-      rotation: node.rotation(),
     });
   };
 

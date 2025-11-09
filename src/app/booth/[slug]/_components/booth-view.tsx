@@ -9,6 +9,7 @@ import {
   useState,
   type DragEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import {
   AlertTriangle,
@@ -24,6 +25,30 @@ import type { FrameSlot, FrameTemplate } from "@/types/frame";
 interface BoothViewProps {
   template: FrameTemplate;
 }
+
+interface BoothAppShellProps {
+  children: ReactNode;
+  canvasRef: RefObject<HTMLCanvasElement>;
+  canvasWidth: number;
+  canvasHeight: number;
+}
+
+const BoothAppShell = ({
+  children,
+  canvasRef,
+  canvasWidth,
+  canvasHeight,
+}: BoothAppShellProps) => (
+  <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center gap-8 px-4 py-10">
+    {children}
+    <canvas
+      ref={canvasRef}
+      className="hidden"
+      width={canvasWidth}
+      height={canvasHeight}
+    />
+  </div>
+);
 
 type BoothStatus =
   | "idle"
@@ -110,62 +135,191 @@ export const BoothView = ({ template }: BoothViewProps) => {
   }, [resetSessionState, template.slug]);
 
   useEffect(() => {
-    if (stage === "arrange") {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-      setHasCameraAccess(false);
-      setIsVideoReady(false);
+    // Don't stop the stream during arrange - let users see the preview
+    // Only stop when explicitly needed (e.g., component unmount or explicit cleanup)
+    if (stage === "final" || stage === "idle") {
+      // Keep camera active even during arrange phase for preview
+      return;
     }
   }, [stage]);
 
-  const ensureVideoPlaying = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video) {
+  // Temporarily disable background interval to see if it's causing white screen
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     const video = videoRef.current;
+  //     const stream = streamRef.current;
+
+  //     if (video && stream && stream.active && !video.srcObject) {
+  //       console.log('🎥 FORCING srcObject reassignment');
+  //       video.srcObject = stream;
+  //     }
+  //   }, 100);
+
+  //   return () => clearInterval(interval);
+  // }, [hasCameraAccess]);
+
+  const safePlay = useCallback(async (video: HTMLVideoElement) => {
+    if (!video.isConnected) {
+      console.info("🎥 Skipping play because video element is disconnected.");
       return false;
     }
-    const attemptPlay = async () => {
-      try {
-        const playResult = video.play();
-        if (playResult !== undefined) {
-          await playResult;
-        }
-        setIsVideoReady(true);
-        return true;
-      } catch (error) {
-        console.warn("비디오 재생을 시작할 수 없습니다.", error);
+    try {
+      await video.play();
+      return true;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.info("🎥 Video play aborted because the element was removed.");
+        return false;
+      }
+      throw error;
+    }
+  }, []);
+
+  const ensureVideoPlaying = useCallback(async () => {
+    const video = videoRef.current;
+    console.log('🎥 ensureVideoPlaying called', {
+      hasVideo: !!video,
+      hasStream: !!streamRef.current,
+      streamActive: streamRef.current?.active,
+      videoSrcObject: !!video?.srcObject,
+      videoPaused: video?.paused,
+      videoReadyState: video?.readyState
+    });
+
+    if (!video || !streamRef.current) {
+      console.warn('🎥 Missing video or stream');
+      return false;
+    }
+
+    try {
+      // Simple approach: just play the video
+      const played = await safePlay(video);
+      if (!played) {
         setIsVideoReady(false);
         return false;
       }
-    };
-
-    if (video.readyState >= 2) {
-      return attemptPlay();
+      console.log('🎥 ensureVideoPlaying SUCCESS', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        paused: video.paused,
+        currentTime: video.currentTime
+      });
+      setIsVideoReady(true);
+      return true;
+    } catch (error) {
+      console.warn("🎥 ensureVideoPlaying FAILED:", error);
+      setIsVideoReady(false);
+      return false;
     }
+  }, [safePlay]);
 
-    return new Promise<boolean>((resolve) => {
-      const handleReady = async () => {
-        cleanup();
-        resolve(await attemptPlay());
-      };
-      const handleError = () => {
-        cleanup();
-        setIsVideoReady(false);
-        resolve(false);
-      };
-      const cleanup = () => {
-        video.removeEventListener("loadeddata", handleReady);
-        video.removeEventListener("loadedmetadata", handleReady);
-        video.removeEventListener("canplay", handleReady);
-        video.removeEventListener("error", handleError);
-      };
-      video.addEventListener("loadeddata", handleReady, { once: true });
-      video.addEventListener("loadedmetadata", handleReady, { once: true });
-      video.addEventListener("canplay", handleReady, { once: true });
-      video.addEventListener("error", handleError, { once: true });
-    });
-  }, []);
+  const waitForVideoReady = useCallback(
+    async (timeoutMs = 5000) => {
+      const video = videoRef.current;
+      const stream = streamRef.current;
+
+      console.log('🎥 waitForVideoReady called', {
+        hasVideo: !!video,
+        hasStream: !!stream,
+        streamActive: stream?.active,
+        videoReadyState: video?.readyState,
+        videoWidth: video?.videoWidth,
+        videoHeight: video?.videoHeight,
+        videoSrcObject: !!video?.srcObject,
+        timeoutMs
+      });
+
+      if (!video) {
+        throw new Error("비디오 요소를 찾지 못했습니다.");
+      }
+
+      if (stream && video.srcObject !== stream) {
+        console.log('🎥 Setting srcObject in waitForVideoReady');
+        video.srcObject = stream;
+      }
+
+      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+        console.log('🎥 Video already ready, skipping wait');
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        let timeoutId: number | null = null;
+
+        const handleReady = () => {
+          if (settled) {
+            return;
+          }
+          console.log('🎥 waitForVideoReady handleReady called', {
+            videoWidth: video.videoWidth,
+            videoHeight: video.videoHeight,
+            readyState: video.readyState,
+            paused: video.paused
+          });
+          settled = true;
+          cleanup();
+          resolve();
+        };
+
+        const handleError = () => {
+          if (settled) {
+            return;
+          }
+          console.log('🎥 waitForVideoReady handleError called', {
+            videoWidth: video.videoWidth,
+            videoHeight: video.videoHeight,
+            readyState: video.readyState,
+            paused: video.paused,
+            isConnected: video.isConnected,
+            srcObject: !!video.srcObject
+          });
+          settled = true;
+          cleanup();
+          reject(new Error("비디오 메타데이터 로드에 실패했습니다."));
+        };
+
+        function cleanup() {
+          video.removeEventListener("loadedmetadata", handleReady);
+          video.removeEventListener("loadeddata", handleReady);
+          video.removeEventListener("canplay", handleReady);
+          video.removeEventListener("error", handleError);
+          if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+          }
+        }
+
+        timeoutId = window.setTimeout(() => {
+          handleError();
+        }, timeoutMs);
+
+        video.addEventListener("loadedmetadata", handleReady);
+        video.addEventListener("loadeddata", handleReady);
+        video.addEventListener("canplay", handleReady);
+        video.addEventListener("error", handleError);
+
+        if (!video.isConnected) {
+          handleError();
+          return;
+        }
+
+        // Skip the play attempt during waitForVideoReady since it causes element removal
+        // Just wait for metadata events instead
+        if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+          handleReady();
+        }
+      });
+
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        throw new Error("비디오 해상도를 가져오지 못했습니다.");
+      }
+    },
+    [safePlay],
+  );
 
   const initializeCamera = useCallback(async () => {
+    console.log('🎥 initializeCamera called', { isRequestingCamera });
+
     if (isRequestingCamera) {
       return streamRef.current !== null;
     }
@@ -179,6 +333,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
     setIsVideoReady(false);
 
     try {
+      console.log('🎥 Requesting camera access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -189,28 +344,79 @@ export const BoothView = ({ template }: BoothViewProps) => {
         audio: false,
       });
 
+      console.log('🎥 Camera access granted!', {
+        streamActive: stream.active,
+        tracks: stream.getVideoTracks().length,
+        trackEnabled: stream.getVideoTracks()[0]?.enabled,
+        trackReadyState: stream.getVideoTracks()[0]?.readyState
+      });
+
       streamRef.current = stream;
       const videoTrack = stream.getVideoTracks()[0];
       const settings = videoTrack?.getSettings();
       if (settings?.width && settings?.height) {
         setVideoAspectRatio(settings.width / settings.height);
       }
+
       if (videoRef.current) {
-        videoRef.current.muted = true;
-        videoRef.current.autoplay = true;
-        videoRef.current.playsInline = true;
-        videoRef.current.setAttribute("muted", "true");
-        videoRef.current.setAttribute("autoplay", "true");
-        videoRef.current.setAttribute("playsinline", "true");
-        videoRef.current.setAttribute("webkit-playsinline", "true");
-        videoRef.current.srcObject = stream;
-        const started = await ensureVideoPlaying();
-        if (!started) {
-          setStreamError(
-            "브라우저가 미리보기를 자동 재생하지 못했습니다. 화면을 한 번 탭한 뒤 다시 시도해주세요.",
-          );
-          setHasCameraAccess(false);
-          return false;
+        const video = videoRef.current;
+        console.log('🎥 Setting up video element...');
+
+        video.muted = true;
+        video.playsInline = true;
+
+        // Try different approaches to set the stream
+        try {
+          video.srcObject = stream;
+          console.log('🎥 srcObject assignment attempted');
+        } catch (error) {
+          console.error('🎥 srcObject assignment failed:', error);
+          // Fallback for older browsers
+          try {
+            video.src = window.URL.createObjectURL(stream as any);
+            console.log('🎥 Fallback URL.createObjectURL used');
+          } catch (fallbackError) {
+            console.error('🎥 Fallback also failed:', fallbackError);
+          }
+        }
+
+        // Wait for video to load metadata
+        let metadataReady = false;
+        try {
+          await waitForVideoReady();
+          metadataReady = true;
+        } catch (metadataError) {
+          console.warn("🎥 Failed to confirm metadata during init:", metadataError);
+        }
+
+        console.log('🎥 After metadata load:', {
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          readyState: video.readyState,
+          paused: video.paused,
+          srcObject: !!video.srcObject
+        });
+
+        setIsVideoReady(metadataReady);
+
+        // Clear any existing errors
+        setStreamError(null);
+
+        // Try to start playback immediately
+        try {
+          const played = await safePlay(video);
+          if (played) {
+            console.log('🎥 Video play succeeded!', {
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              currentTime: video.currentTime,
+              paused: video.paused
+            });
+          }
+        } catch (error) {
+          console.warn("🎥 Initial video play failed - this is normal for autoplay restrictions:", error);
+          // Don't set a stream error - this is expected behavior
+          // The video stream is ready, just needs user interaction
         }
       }
 
@@ -240,7 +446,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
     } finally {
       setIsRequestingCamera(false);
     }
-  }, [ensureVideoPlaying, isRequestingCamera]);
+  }, [isRequestingCamera, safePlay, waitForVideoReady]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -251,27 +457,70 @@ export const BoothView = ({ template }: BoothViewProps) => {
     const markNotReady = () => setIsVideoReady(false);
     video.addEventListener("playing", markReady);
     video.addEventListener("pause", markNotReady);
-    video.addEventListener("stalled", markNotReady);
-    video.addEventListener("suspend", markNotReady);
-    video.addEventListener("emptied", markNotReady);
     return () => {
       video.removeEventListener("playing", markReady);
       video.removeEventListener("pause", markNotReady);
-      video.removeEventListener("stalled", markNotReady);
-      video.removeEventListener("suspend", markNotReady);
-      video.removeEventListener("emptied", markNotReady);
     };
   }, []);
+
+  // Separate useEffect to handle setting srcObject when both video and stream are available
+  useEffect(() => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+
+    console.log('🎥 useEffect for srcObject:', {
+      hasVideo: !!video,
+      hasStream: !!stream,
+      streamActive: stream?.active,
+      hasCameraAccess,
+      stage,
+      currentVideoSrcObject: !!video?.srcObject
+    });
+
+    if (!video || !stream || !stream.active || !hasCameraAccess) {
+      console.log('🎥 Skipping srcObject assignment - missing requirements');
+      return;
+    }
+
+    if (video.srcObject === stream) {
+      console.log('🎥 srcObject already set correctly');
+      return;
+    }
+
+    try {
+      console.log('🎥 Setting srcObject in useEffect...');
+      video.srcObject = stream;
+
+      const handleLoadedMetadata = () => {
+        console.log('🎥 Video metadata loaded in useEffect:', {
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          readyState: video.readyState
+        });
+        setIsVideoReady(true);
+
+        // Try to play the video
+        void safePlay(video).catch(error => {
+          console.warn('🎥 Video play failed in useEffect:', error);
+        });
+      };
+
+      if (video.readyState >= 1) {
+        handleLoadedMetadata();
+      } else {
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+      }
+
+    } catch (error) {
+      console.error('🎥 srcObject assignment failed in useEffect:', error);
+    }
+  }, [hasCameraAccess, safePlay]); // Only re-run when camera access changes
 
   useEffect(() => {
     if (!hasCameraAccess || isVideoReady) {
       return;
     }
-    const video = videoRef.current;
-    if (video?.readyState >= 2 && !video.paused) {
-      setIsVideoReady(true);
-      return;
-    }
+
     const resumeOnInteraction = () => {
       void ensureVideoPlaying().then((started) => {
         if (!started) {
@@ -283,18 +532,17 @@ export const BoothView = ({ template }: BoothViewProps) => {
         }
       });
     };
-    const resumeOnVisibility = () => {
-      if (!document.hidden) {
-        void ensureVideoPlaying();
-      }
-    };
+
     window.addEventListener("pointerdown", resumeOnInteraction);
     window.addEventListener("keydown", resumeOnInteraction);
-    document.addEventListener("visibilitychange", resumeOnVisibility);
+    window.addEventListener("click", resumeOnInteraction);
+    window.addEventListener("touchstart", resumeOnInteraction);
+
     return () => {
       window.removeEventListener("pointerdown", resumeOnInteraction);
       window.removeEventListener("keydown", resumeOnInteraction);
-      document.removeEventListener("visibilitychange", resumeOnVisibility);
+      window.removeEventListener("click", resumeOnInteraction);
+      window.removeEventListener("touchstart", resumeOnInteraction);
     };
   }, [ensureVideoPlaying, hasCameraAccess, isVideoReady]);
   useEffect(() => {
@@ -312,18 +560,76 @@ export const BoothView = ({ template }: BoothViewProps) => {
   const drawVideoFrame = (slot?: FrameSlot) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) {
-      return null;
-    }
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
+    const stream = streamRef.current;
+
+    console.log('🎥 drawVideoFrame called', {
+      hasVideo: !!video,
+      hasCanvas: !!canvas,
+      hasStream: !!stream,
+      videoWidth: video?.videoWidth,
+      videoHeight: video?.videoHeight,
+      videoPaused: video?.paused,
+      videoReadyState: video?.readyState,
+      videoSrcObject: !!video?.srcObject,
+      streamActive: stream?.active,
+      slot: slot ? `${slot.width}x${slot.height}` : 'full'
+    });
+
+    if (!video || !canvas || !stream) {
+      console.error('🎥 Missing video, canvas, or stream');
       return null;
     }
 
+    // Ensure video has the stream
+    if (!video.srcObject || video.srcObject !== stream) {
+      console.log('🎥 Re-setting srcObject before capture');
+      video.srcObject = stream;
+    }
+
+    // Wait a moment for video to be ready
+    if (video.readyState < 2) {
+      console.warn('🎥 Video not ready for capture, readyState:', video.readyState);
+      return null;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      console.error('🎥 Cannot get canvas 2d context');
+      return null;
+    }
+
+    // Use actual video dimensions or fallback
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
     const fallbackWidth = template.layout.canvas.width;
     const fallbackHeight = template.layout.canvas.height;
-    const videoWidth = video.videoWidth || fallbackWidth;
-    const videoHeight = video.videoHeight || fallbackHeight;
+
+    console.log('🎥 Video dimensions for capture:', {
+      videoWidth,
+      videoHeight,
+      fallbackWidth,
+      fallbackHeight,
+      hasVideoDimensions: videoWidth > 0 && videoHeight > 0
+    });
+
+    // If video dimensions are not available, try a different approach
+    if (!videoWidth || !videoHeight) {
+      console.error('🎥 Video has no dimensions, trying with stream video track...');
+
+      // Try to get dimensions from the video track
+      const tracks = stream.getVideoTracks();
+      if (tracks.length > 0) {
+        const settings = tracks[0].getSettings();
+        console.log('🎥 Video track settings:', settings);
+        if (settings.width && settings.height) {
+          // Use track dimensions as fallback
+          const trackWidth = settings.width;
+          const trackHeight = settings.height;
+          console.log('🎥 Using track dimensions:', trackWidth, trackHeight);
+        }
+      }
+      return null;
+    }
 
     if (slot) {
       canvas.width = slot.width;
@@ -347,6 +653,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
         sy = (videoHeight - sourceHeight) / 2;
       }
 
+      console.log('🎥 Drawing to slot canvas:', {
+        sx, sy, sourceWidth, sourceHeight,
+        destWidth: slot.width,
+        destHeight: slot.height
+      });
+
       ctx.drawImage(
         video,
         sx,
@@ -358,7 +670,22 @@ export const BoothView = ({ template }: BoothViewProps) => {
         slot.width,
         slot.height,
       );
-      return canvas.toDataURL("image/png");
+
+      // Check if canvas actually contains image data
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const hasNonTransparentPixels = Array.from(imageData.data).some((value, index) =>
+        index % 4 !== 3 && value !== 255  // Check RGB values (skip alpha), not all white
+      );
+
+      console.log('🎥 Canvas pixel analysis:', {
+        hasNonTransparentPixels,
+        totalPixels: imageData.data.length / 4,
+        samplePixels: Array.from(imageData.data.slice(0, 20))
+      });
+
+      const dataUrl = canvas.toDataURL("image/png");
+      console.log('🎥 Slot capture completed, data URL length:', dataUrl.length);
+      return dataUrl;
     }
 
     canvas.width = fallbackWidth;
@@ -388,26 +715,185 @@ export const BoothView = ({ template }: BoothViewProps) => {
     return canvas.toDataURL("image/png");
   };
 
+  const keepPreviewAlive = useCallback(
+    async (reason: string, options?: { metadataTimeout?: number }) => {
+      const video = videoRef.current;
+      const stream = streamRef.current;
+
+      if (!video || !stream) {
+        console.warn(`🎥 keepPreviewAlive skipped (${reason}) - missing refs`, {
+          hasVideo: !!video,
+          hasStream: !!stream,
+        });
+        return false;
+      }
+
+      if (!stream.active) {
+        console.warn(`🎥 keepPreviewAlive skipped (${reason}) - inactive stream`);
+        return false;
+      }
+
+      if (video.srcObject !== stream) {
+        console.log(`🎥 keepPreviewAlive reattaching stream (${reason})`);
+        video.srcObject = stream;
+      }
+
+      if (video.readyState < 2 || video.videoWidth === 0) {
+        try {
+          await waitForVideoReady(options?.metadataTimeout ?? 1500);
+        } catch (error) {
+          console.warn(`🎥 keepPreviewAlive metadata wait failed (${reason}):`, error);
+        }
+      }
+
+      if (video.paused) {
+        try {
+          const played = await safePlay(video);
+          if (!played) {
+            console.warn(
+              `🎥 keepPreviewAlive play skipped (${reason}) - element disconnected`,
+            );
+          }
+        } catch (error) {
+          console.warn(`🎥 keepPreviewAlive play failed (${reason}):`, error);
+        }
+      }
+
+      const ready =
+        video.readyState >= 2 &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0 &&
+        !video.paused;
+
+      if (!ready) {
+        console.warn(`🎥 keepPreviewAlive incomplete (${reason})`, {
+          readyState: video.readyState,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          paused: video.paused,
+          hasSrcObject: !!video.srcObject,
+        });
+      } else {
+        console.log(`🎥 keepPreviewAlive OK (${reason})`, {
+          readyState: video.readyState,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+        });
+      }
+
+      return ready;
+    },
+    [safePlay, waitForVideoReady],
+  );
+
+  useEffect(() => {
+    if (stage !== "capture" || !hasCameraAccess) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const tick = () => {
+      if (cancelled) {
+        return;
+      }
+      void keepPreviewAlive("keep-alive");
+    };
+
+    tick();
+    const intervalId = window.setInterval(tick, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [hasCameraAccess, keepPreviewAlive, stage]);
+
   const runCountdown = async () => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+
+    await keepPreviewAlive("countdown-start", { metadataTimeout: 800 });
+
+    console.log('🎥 BEFORE setStatus("countdown") - video state:', {
+      videoWidth: video?.videoWidth,
+      videoHeight: video?.videoHeight,
+      paused: video?.paused,
+      readyState: video?.readyState,
+      srcObject: !!video?.srcObject
+    });
+
     setStatus("countdown");
+
+    // Check video state IMMEDIATELY after status change
+    console.log('🎥 AFTER setStatus("countdown") - video state:', {
+      videoWidth: video?.videoWidth,
+      videoHeight: video?.videoHeight,
+      paused: video?.paused,
+      readyState: video?.readyState,
+      srcObject: !!video?.srcObject
+    });
+
+    // Wait a moment to see if something async affects it
+    await delay(50);
+    console.log('🎥 50ms after setStatus("countdown") - video state:', {
+      videoWidth: video?.videoWidth,
+      videoHeight: video?.videoHeight,
+      paused: video?.paused,
+      readyState: video?.readyState,
+      srcObject: !!video?.srcObject
+    });
+    void keepPreviewAlive("countdown-post-status", { metadataTimeout: 600 });
+
     for (let value = COUNTDOWN_START; value >= 1; value -= 1) {
       setCountdown(value);
+
+      // Don't touch video at all during countdown to prevent flickers
+      // Log video state during each countdown number
+      console.log(`🎥 Countdown ${value} - video state:`, {
+        paused: video?.paused,
+        readyState: video?.readyState,
+        videoWidth: video?.videoWidth,
+        videoHeight: video?.videoHeight
+      });
+
       // biome-ignore lint/suspicious/noAwaitInLoop: countdown needs step delay
       await delay(1000);
     }
     setCountdown(null);
   };
 
+  const abortCapture = useCallback(
+    (message?: string) => {
+      if (message) {
+        setStreamError(message);
+      }
+      setStatus("idle");
+      setCountdown(null);
+      setStage("capture");
+    },
+    [],
+  );
+
   const captureSequence = async () => {
+    console.log('🎥 Starting capture sequence...');
+
     if (!videoRef.current || !canvasRef.current) {
-      setStreamError("카메라 초기화가 완료되지 않았습니다.");
+      abortCapture("카메라 초기화가 완료되지 않았습니다.");
       return;
     }
 
     if (!slots.length) {
-      setStreamError("이 템플릿에는 사용할 수 있는 슬롯이 없습니다.");
+      abortCapture("이 템플릿에는 사용할 수 있는 슬롯이 없습니다.");
       return;
     }
+
+    console.log('🎥 Video state before capture:', {
+      paused: videoRef.current.paused,
+      readyState: videoRef.current.readyState,
+      videoWidth: videoRef.current.videoWidth,
+      videoHeight: videoRef.current.videoHeight
+    });
 
     setCapturedShots(Array(captureCount).fill(""));
     setFinalImage(null);
@@ -421,22 +907,156 @@ export const BoothView = ({ template }: BoothViewProps) => {
     );
 
     for (let index = 0; index < captureCount; index += 1) {
+      console.log(`🎥 Capturing shot ${index + 1}/${captureCount}`);
       setCurrentShotIndex(index);
       const overlaySlot = slots[index % slots.length] ?? slots[0];
       await runCountdown();
+
+      // Log video state before switching to capturing
+      console.log('🎥 BEFORE setStatus("capturing") - video state:', {
+        videoWidth: videoRef.current?.videoWidth,
+        videoHeight: videoRef.current?.videoHeight,
+        srcObject: !!videoRef.current?.srcObject,
+        readyState: videoRef.current?.readyState
+      });
+
       setStatus("capturing");
+
+      // Log video state after switching to capturing
+      console.log('🎥 AFTER setStatus("capturing") - video state:', {
+        videoWidth: videoRef.current?.videoWidth,
+        videoHeight: videoRef.current?.videoHeight,
+        srcObject: !!videoRef.current?.srcObject,
+        readyState: videoRef.current?.readyState
+      });
+
+      console.log('🎥 Video state during capture:', {
+        paused: videoRef.current.paused,
+        readyState: videoRef.current.readyState,
+        videoWidth: videoRef.current.videoWidth,
+        videoHeight: videoRef.current.videoHeight
+      });
+
+      // Ensure srcObject is properly set before capture
+      const stream = streamRef.current;
+      if (!videoRef.current.srcObject && stream) {
+        console.log('🎥 Re-assigning srcObject before capture...');
+        videoRef.current.srcObject = stream;
+      }
+
+      // Ensure video metadata is loaded and video is ready
+      if (videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
+        console.log('🎥 Video metadata not loaded, trying manual approach...');
+
+        // Instead of using waitForVideoReady which can cause element removal,
+        // try a simpler approach with shorter timeout
+        let retries = 0;
+        const maxRetries = 10;
+
+        while (retries < maxRetries) {
+          console.log(`🎥 Retry ${retries}/${maxRetries} - Video state:`, {
+            videoWidth: videoRef.current.videoWidth,
+            videoHeight: videoRef.current.videoHeight,
+            readyState: videoRef.current.readyState,
+            paused: videoRef.current.paused,
+            srcObject: !!videoRef.current.srcObject,
+            streamActive: stream?.active
+          });
+
+          // If still no srcObject, try to set it again
+          if (!videoRef.current.srcObject && stream) {
+            console.log('🎥 Re-setting srcObject during retry...');
+            videoRef.current.srcObject = stream;
+          }
+
+          // Skip video.load() calls that cause white screen flashes
+
+          if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+            console.log('🎥 Video dimensions loaded:', {
+              videoWidth: videoRef.current.videoWidth,
+              videoHeight: videoRef.current.videoHeight,
+              readyState: videoRef.current.readyState
+            });
+            break;
+          }
+
+          await delay(200);
+          retries++;
+        }
+
+        if (videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) {
+          console.error('🎥 Video dimensions still not available after retries');
+          abortCapture("비디오 해상도를 가져올 수 없습니다. 다시 시도해주세요.");
+          return;
+        }
+      }
+
+      // Ensure video is playing before capture
+      if (videoRef.current.paused) {
+        console.log('🎥 Video is paused, attempting to play before capture...');
+        try {
+          const played = await safePlay(videoRef.current);
+          if (played) {
+            console.log('🎥 Video play successful before capture');
+          } else {
+            console.warn('🎥 Video play skipped before capture (element missing)');
+          }
+        } catch (error) {
+          console.error('🎥 Failed to play video before capture:', error);
+        }
+      }
+
+      // Wait a brief moment for video to be stable
+      await delay(200);
 
       const slotCapture = drawVideoFrame(overlaySlot);
       if (!slotCapture) {
-        setStreamError("캡처에 실패했습니다. 다시 시도해주세요.");
+        abortCapture("캡처에 실패했습니다. 다시 시도해주세요.");
         return;
       }
+
+      console.log('🎥 Shot captured successfully', {
+        dataUrlLength: slotCapture.length,
+        dataUrlPreview: slotCapture.substring(0, 100) + '...',
+        overlaySlot: `${overlaySlot.width}x${overlaySlot.height}`
+      });
 
       setCapturedShots((prev) => {
         const next = [...prev];
         next[index] = slotCapture;
         return next;
       });
+
+      // Resume video playback after each shot and ensure stream stability
+      try {
+        const video = videoRef.current;
+        const stream = streamRef.current;
+
+        if (video && stream) {
+          // Ensure srcObject is still assigned
+          if (video.srcObject !== stream) {
+            console.log('🎥 Re-assigning srcObject after shot...');
+            video.srcObject = stream;
+          }
+
+          // Resume playback if paused
+          if (video.paused) {
+            console.log('🎥 Resuming video after shot capture...');
+            await safePlay(video);
+          }
+
+          // Log state after resuming
+          console.log('🎥 Video state after shot resume:', {
+            videoWidth: video.videoWidth,
+            videoHeight: video.videoHeight,
+            paused: video.paused,
+            readyState: video.readyState,
+            srcObject: !!video.srcObject
+          });
+        }
+      } catch (error) {
+        console.warn('🎥 Failed to resume video after shot:', error);
+      }
 
       if (index < captureCount - 1) {
         setStatus("waiting");
@@ -445,6 +1065,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       }
     }
 
+    console.log('🎥 Capture sequence completed');
     setStatus("arranging");
     setStage("arrange");
     setActiveSlotId(slots[0]?.id ?? null);
@@ -688,18 +1309,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
     }
   })();
 
-  const AppShell = ({ children }: { children: ReactNode }) => (
-    <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center gap-8 px-4 py-10">
-      {children}
-      <canvas
-        ref={canvasRef}
-        className="hidden"
-        width={template.layout.canvas.width}
-        height={template.layout.canvas.height}
-      />
-    </div>
-  );
-
   if (stage === "arrange") {
     const canvasAspectRatio =
       template.layout.canvas.width / template.layout.canvas.height;
@@ -714,7 +1323,11 @@ export const BoothView = ({ template }: BoothViewProps) => {
     };
 
     return (
-      <AppShell>
+      <BoothAppShell
+        canvasRef={canvasRef}
+        canvasWidth={template.layout.canvas.width}
+        canvasHeight={template.layout.canvas.height}
+      >
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 max-h-[90vh] overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -881,6 +1494,10 @@ export const BoothView = ({ template }: BoothViewProps) => {
               사진을 드래그하거나 클릭해 프레임에 배치하세요. ({capturedShots.filter(Boolean).length}
               /{captureCount} 컷)
             </p>
+            {/* Debug info for captured shots */}
+            <div className="mt-2 text-xs text-slate-400">
+              Debug: {capturedShots.map((shot, i) => `${i+1}:${shot ? 'OK' : 'Empty'}`).join(', ')}
+            </div>
             <div className="mt-4 grid max-h-[70vh] grid-cols-2 gap-3 overflow-y-auto pr-1">
               {capturedShots.map((shot, index) => {
                 const isUsed = assignedShotIndexes.has(index);
@@ -923,16 +1540,20 @@ export const BoothView = ({ template }: BoothViewProps) => {
             </div>
           </div>
         </div>
-      </AppShell>
+      </BoothAppShell>
     );
   }
 
   return (
-    <AppShell>
+    <BoothAppShell
+      canvasRef={canvasRef}
+      canvasWidth={template.layout.canvas.width}
+      canvasHeight={template.layout.canvas.height}
+    >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="rounded-3xl bg-black relative overflow-hidden shadow-xl">
+        <div className="rounded-3xl relative overflow-hidden shadow-xl">
           <div
-            className="relative mx-auto w-full max-w-4xl bg-black"
+            className="relative mx-auto w-full max-w-4xl"
             style={{
               aspectRatio: cameraAspectRatio,
               maxHeight: "60vh",
@@ -942,15 +1563,24 @@ export const BoothView = ({ template }: BoothViewProps) => {
             {/** Camera feed */}
             <video
               ref={videoRef}
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover z-10"
               playsInline
-              autoPlay
               muted
+              autoPlay
               onLoadedMetadata={handleVideoMetadata}
+              onLoadedData={() => console.log('Video loaded data')}
+              onCanPlay={() => console.log('Video can play')}
+              onPlay={() => console.log('Video started playing')}
+              onPause={() => console.log('🎥 Video paused during countdown')}
+              onPlaying={() => console.log('🎥 Video playing during countdown')}
+              style={{
+                visibility: 'visible',
+                opacity: 1
+              }}
             />
             {/** Permission overlay */}
             {!hasCameraAccess ? (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/70 p-6 text-center text-white">
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-black/70 p-6 text-center text-white">
                 <p className="text-sm leading-relaxed text-slate-200">
                   카메라 권한이 필요합니다. 아래 버튼을 눌러 브라우저 권한 요청을 허용해주세요.
                 </p>
@@ -974,31 +1604,17 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 </button>
               </div>
             ) : null}
-            {hasCameraAccess && !isVideoReady ? (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/60 p-6 text-center text-white">
-                <p className="text-sm leading-relaxed text-slate-200">
-                  브라우저가 자동으로 미리보기를 재생하지 못했습니다. 화면을 한 번 탭하거나 아래 버튼을 눌러 미리보기를 다시 시작해주세요.
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void ensureVideoPlaying().then((started) => {
-                      if (!started) {
-                        setStreamError(
-                          "미리보기를 다시 실행하지 못했습니다. 다른 탭에서 카메라를 사용 중인지 확인해주세요.",
-                        );
-                      }
-                    })
-                  }
-                  className="rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow transition hover:bg-white"
-                >
-                  미리보기 다시 실행
-                </button>
-              </div>
-            ) : null}
+            {/* Countdown number positioned in corner to avoid covering video */}
             {countdown ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
-                <span className="text-6xl font-bold text-white">{countdown}</span>
+              <div className="absolute top-8 left-8 z-20 pointer-events-none">
+                <span
+                  className="text-8xl font-bold text-white drop-shadow-2xl"
+                  style={{
+                    textShadow: '3px 3px 6px rgba(0,0,0,0.8)'
+                  }}
+                >
+                  {countdown}
+                </span>
               </div>
             ) : null}
           </div>
@@ -1021,6 +1637,21 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 진행 상태: {Math.min(currentShotIndex + 1, captureCount)}/{captureCount}
               </p>
             ) : null}
+
+            {/* Debug info */}
+            <div className="mt-2 rounded-xl bg-yellow-50 p-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>Camera: {hasCameraAccess ? '✅' : '❌'}</div>
+                <div>Video Ready: {isVideoReady ? '✅' : '❌'}</div>
+                <div>Stream: {streamRef.current?.active ? '✅' : '❌'}</div>
+                <div>Requesting: {isRequestingCamera ? '⏳' : '✅'}</div>
+                <div>Video Size: {videoRef.current?.videoWidth || 0}x{videoRef.current?.videoHeight || 0}</div>
+                <div>Paused: {videoRef.current?.paused ? '❌' : '✅'}</div>
+                <div>Ready State: {videoRef.current?.readyState || 0}</div>
+                <div>Has SrcObject: {videoRef.current?.srcObject ? '✅' : '❌'}</div>
+              </div>
+              {streamError && <div className="mt-1 text-red-600">Error: {streamError}</div>}
+            </div>
           </div>
 
           {streamError ? (
@@ -1122,6 +1753,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
           </div>
         </div>
       </div>
-    </AppShell>
+    </BoothAppShell>
   );
 };

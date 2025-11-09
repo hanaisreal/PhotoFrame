@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactElement } from "react";
 import Link from "next/link";
 import type Konva from "konva";
 import { Download, ImageIcon, Loader2, Share2, Sparkles, Trash } from "lucide-react";
@@ -23,11 +24,11 @@ type EditorStep = {
   id: string;
   title: string;
   description: string;
-  render: () => JSX.Element;
+  render: () => ReactElement;
 };
 
 export const EditorView = ({ initialTemplate }: EditorViewProps) => {
-  const stageRef = useRef<Konva.Stage>(null);
+  const stageRef = useRef<Konva.Stage>(null!);
   const [currentSlug, setCurrentSlug] = useState<string>(() =>
     initialTemplate?.slug ?? createTemplateSlug(),
   );

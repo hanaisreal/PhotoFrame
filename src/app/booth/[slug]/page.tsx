@@ -6,7 +6,7 @@ import { getTemplate } from "@/lib/templates";
 type BoothParams = { slug: string };
 
 interface BoothPageProps {
-  params: BoothParams | Promise<BoothParams>;
+  params: Promise<BoothParams>;
 }
 
 const BoothPage = async ({ params }: BoothPageProps) => {

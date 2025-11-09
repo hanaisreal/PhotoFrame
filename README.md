@@ -98,6 +98,7 @@ src/
 
 ## 최근 구현 사항 요약
 
+- 촬영 부스의 라이브 카메라가 카운트다운마다 흰색으로 깜빡이던 문제를 해결했습니다. 원인은 `<video>` 태그가 `BoothView` 내부에서 즉석으로 선언된 `AppShell` 컴포넌트 아래에 놓여 있어 상태 전환 시마다 DOM이 새로 마운트되고 `srcObject`가 끊기는 것이었습니다. `BoothAppShell`이라는 상단 레벨 래퍼를 만들어 동일한 `<video>` 노드가 유지되도록 한 뒤, `keepPreviewAlive` 헬퍼로 스트림 재부착·재생을 보조해 카운트다운과 촬영 전 과정에서 미리보기가 끊기지 않습니다. (참조: `src/app/booth/[slug]/_components/booth-view.tsx`)
 - 촬영 부스(`src/app/booth/[slug]/_components/booth-view.tsx`)에서 `initializeCamera`를 `useCallback` 아래로 이동해 의존성 평가 시 발생하던 `initializeCamera` 참조 오류를 제거했습니다.
 - 카메라 미리보기의 자동 재생이 차단되는 브라우저를 위해 `isVideoReady` 상태를 추가하고, 사용자 상호작용/가시성 변화를 감지해 `video.play()`를 재시도하도록 보완했습니다.
 - `<video>` 태그에 `muted`, `autoplay`, `playsInline`, `webkit-playsinline` 속성을 명시적으로 세팅하고, 재생 실패 시 에러 메시지를 사용자에게 표시하도록 개선했습니다.

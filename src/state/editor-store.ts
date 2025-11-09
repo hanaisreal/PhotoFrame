@@ -55,7 +55,7 @@ interface EditorActions {
     input: Partial<Omit<StickerElement, "id">>,
   ) => void;
   removeSticker: (id: string) => void;
-  addText: (input?: Partial<Omit<TextElement, "id">>) => string;
+  addText: (input?: Partial<Omit<TextElement, "id">> & { id?: string }) => string;
   updateText: (id: string, input: Partial<TextElement>) => void;
   removeText: (id: string) => void;
   setOverlayDataUrl: (dataUrl: string | undefined) => void;
@@ -66,6 +66,7 @@ interface EditorActions {
     layout: FrameLayout;
     images: ImageElement[];
     stickers: StickerElement[];
+    texts: TextElement[];
     overlayDataUrl?: string;
   }) => void;
 }

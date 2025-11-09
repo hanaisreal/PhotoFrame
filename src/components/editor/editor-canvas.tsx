@@ -83,7 +83,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     }
   }, [selection, stageRef]);
 
-  const handleStageDeselection = (event: Konva.KonvaEventObject<MouseEvent>) => {
+  const handleStageDeselection = (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const clickedOnEmpty = event.target === event.target.getStage();
     if (clickedOnEmpty) {
       setSelection({ id: null, kind: null });

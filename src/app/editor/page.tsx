@@ -6,9 +6,7 @@ import { EditorView } from "./_components/editor-view";
 type SearchParamsValue = Record<string, string | string[] | undefined>;
 
 interface EditorPageProps {
-  searchParams:
-    | SearchParamsValue
-    | Promise<SearchParamsValue>;
+  searchParams: Promise<SearchParamsValue>;
 }
 
 const resolveSlug = (
