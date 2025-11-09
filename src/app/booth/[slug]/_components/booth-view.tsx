@@ -1419,7 +1419,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
               >
                 {isComposing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
+                ) : ( 
                   <Check className="h-4 w-4" />
                 )}
                 배치 확정하기
