@@ -273,10 +273,10 @@ export const BoothView = ({ template }: BoothViewProps) => {
         };
 
         function cleanup() {
-          video.removeEventListener("loadedmetadata", handleReady);
-          video.removeEventListener("loadeddata", handleReady);
-          video.removeEventListener("canplay", handleReady);
-          video.removeEventListener("error", handleError);
+          video?.removeEventListener("loadedmetadata", handleReady);
+          video?.removeEventListener("loadeddata", handleReady);
+          video?.removeEventListener("canplay", handleReady);
+          video?.removeEventListener("error", handleError);
           if (timeoutId !== null) {
             window.clearTimeout(timeoutId);
           }
