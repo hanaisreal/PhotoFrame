@@ -95,6 +95,31 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     [selection.kind],
   );
 
+  const applyTextTransform = useCallback(
+    (node: Konva.Text, commit: boolean) => {
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      const nextWidth = Math.max(80, node.width() * Math.abs(scaleX));
+      const nextFontSize = Math.max(8, node.fontSize() * Math.abs(scaleY));
+      node.width(nextWidth);
+      node.fontSize(nextFontSize);
+      node.scaleX(1);
+      node.scaleY(1);
+      node.getLayer()?.batchDraw();
+
+      if (commit && selection.kind === "text" && selection.id) {
+        updateTextElement(selection.id, {
+          x: node.x(),
+          y: node.y(),
+          rotation: node.rotation(),
+          width: nextWidth,
+          fontSize: nextFontSize,
+        });
+      }
+    },
+    [selection.id, selection.kind, updateTextElement],
+  );
+
 
   useEffect(() => {
     const updateScale = () => {
@@ -349,6 +374,24 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
               enabledAnchors={transformerAnchors}
               boundBoxFunc={transformerBoundBox}
               anchorCornerRadius={4}
+              onTransform={() => {
+                if (selection.kind === "text") {
+                  const node = transformerRef.current
+                    ?.nodes?.()[0] as Konva.Text | undefined;
+                  if (node) {
+                    applyTextTransform(node, false);
+                  }
+                }
+              }}
+              onTransformEnd={() => {
+                if (selection.kind === "text") {
+                  const node = transformerRef.current
+                    ?.nodes?.()[0] as Konva.Text | undefined;
+                  if (node) {
+                    applyTextTransform(node, true);
+                  }
+                }
+              }}
             />
         </Layer>
       </Stage>
