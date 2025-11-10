@@ -1224,6 +1224,21 @@ export const BoothView = ({ template }: BoothViewProps) => {
     [capturedShots, slotAssignments, slots],
   );
 
+  const canGenerateFinalImage = useMemo(
+    () =>
+      slots.length > 0 &&
+      (
+        // Allow if at least one slot is assigned
+        slots.some((slot) => {
+          const shotIndex = slotAssignments[slot.id];
+          return typeof shotIndex === "number" && Boolean(capturedShots[shotIndex]);
+        }) ||
+        // Or if there are floating images from the editor
+        (template.images && template.images.filter(img => !img.slotId).length > 0)
+      ),
+    [capturedShots, slotAssignments, slots, template.images],
+  );
+
   const assignedShotIndexes = useMemo(() => {
     return new Set(
       Object.values(slotAssignments).filter(
@@ -1262,13 +1277,13 @@ export const BoothView = ({ template }: BoothViewProps) => {
   }, []);
 
   const handleConfirmArrangement = useCallback(async () => {
-    if (!isAllSlotsAssigned) {
-      setArrangementError("모든 프레임에 사진을 배치해주세요.");
+    if (!canGenerateFinalImage) {
+      setArrangementError("적어도 하나의 사진을 배치하거나 편집기에서 이미지를 추가해주세요.");
       return;
     }
     setArrangementError(null);
     await composeFinalImage();
-  }, [composeFinalImage, isAllSlotsAssigned]);
+  }, [composeFinalImage, canGenerateFinalImage]);
 
   const handleShotDragStart = (
     event: DragEvent<HTMLButtonElement>,
@@ -1585,7 +1600,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 type="button"
                 className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                 onClick={handleConfirmArrangement}
-                disabled={!isAllSlotsAssigned || isComposing}
+                disabled={!canGenerateFinalImage || isComposing}
               >
                 {isComposing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

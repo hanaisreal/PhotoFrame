@@ -19,6 +19,25 @@ const ensureLocalDirectory = async () => {
   await mkdir(LOCAL_TEMPLATE_DIR, { recursive: true });
 };
 
+const readTemplateFromDisk = async (
+  slug: string,
+): Promise<FrameTemplate | null> => {
+  try {
+    const filePath = path.join(LOCAL_TEMPLATE_DIR, `${slug}.json`);
+    const file = await readFile(filePath, "utf-8");
+    const parsed = JSON.parse(file) as TemplatePersistencePayload;
+    return normalizeTemplate({
+      slug,
+      data: parsed,
+      overlay_data_url: parsed.overlayDataUrl,
+      created_at: parsed.createdAt,
+      updated_at: parsed.updatedAt,
+    });
+  } catch {
+    return null;
+  }
+};
+
 const normalizeTemplate = (input: {
   slug: string;
   data: TemplatePersistencePayload;
@@ -50,24 +69,31 @@ export const saveTemplate = async (
   const supabase = getSupabaseServerClient();
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from(TABLE_NAME)
-      .upsert(
-        {
-          slug: payload.slug,
-          data: payload,
-          overlay_data_url: payload.overlayDataUrl,
-        },
-        { onConflict: "slug" },
-      )
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .upsert(
+          {
+            slug: payload.slug,
+            data: payload,
+            overlay_data_url: payload.overlayDataUrl,
+          },
+          { onConflict: "slug" },
+        )
+        .select()
+        .single();
 
-    if (error) {
-      throw mapSupabaseError(error);
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      return { slug: data.slug };
+    } catch (error) {
+      console.warn(
+        "[templates] Failed to save via Supabase. Falling back to local file storage.",
+        error,
+      );
     }
-
-    return { slug: data.slug };
   }
 
   await ensureLocalDirectory();
@@ -82,43 +108,37 @@ export const getTemplate = async (
   const supabase = getSupabaseServerClient();
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from(TABLE_NAME)
-      .select("slug, data, overlay_data_url, created_at, updated_at")
-      .eq("slug", slug)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select("slug, data, overlay_data_url, created_at, updated_at")
+        .eq("slug", slug)
+        .maybeSingle();
 
-    if (error) {
-      throw mapSupabaseError(error);
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      return normalizeTemplate({
+        slug: data.slug,
+        data: data.data as TemplatePersistencePayload,
+        overlay_data_url: data.overlay_data_url as string | undefined,
+        created_at: data.created_at as string | undefined,
+        updated_at: data.updated_at as string | undefined,
+      });
+    } catch (error) {
+      console.warn(
+        "[templates] Failed to read via Supabase. Falling back to local file storage.",
+        error,
+      );
     }
-
-    if (!data) {
-      return null;
-    }
-
-    return normalizeTemplate({
-      slug: data.slug,
-      data: data.data as TemplatePersistencePayload,
-      overlay_data_url: data.overlay_data_url as string | undefined,
-      created_at: data.created_at as string | undefined,
-      updated_at: data.updated_at as string | undefined,
-    });
   }
 
-  try {
-    const filePath = path.join(LOCAL_TEMPLATE_DIR, `${slug}.json`);
-    const file = await readFile(filePath, "utf-8");
-    const parsed = JSON.parse(file) as TemplatePersistencePayload;
-    return normalizeTemplate({
-      slug,
-      data: parsed,
-      overlay_data_url: parsed.overlayDataUrl,
-      created_at: parsed.createdAt,
-      updated_at: parsed.updatedAt,
-    });
-  } catch {
-    return null;
-  }
+  return readTemplateFromDisk(slug);
 };
 
 export const supabaseAvailable = (): boolean => isSupabaseConfigured();

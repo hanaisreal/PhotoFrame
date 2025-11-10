@@ -57,7 +57,7 @@ export const createDefaultVerticalLayout = (
       backgroundColor: "#000000",
     },
     bottomText: {
-      content: "Happy Birthday!",
+      content: "",
       color: "#111111",
       fontSize: 64,
       fontFamily: "var(--font-geist-sans)",

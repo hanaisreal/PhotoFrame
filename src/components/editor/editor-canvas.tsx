@@ -95,6 +95,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     [selection.kind],
   );
 
+
   useEffect(() => {
     const updateScale = () => {
       const container = containerRef.current;
