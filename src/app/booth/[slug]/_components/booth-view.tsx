@@ -136,15 +136,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
     resetSessionState();
   }, [resetSessionState, template.slug]);
 
-  useEffect(() => {
-    // Don't stop the stream during arrange - let users see the preview
-    // Only stop when explicitly needed (e.g., component unmount or explicit cleanup)
-    if (stage === "final" || stage === "idle") {
-      // Keep camera active even during arrange phase for preview
-      return;
-    }
-  }, [stage]);
-
   // Temporarily disable background interval to see if it's causing white screen
   // useEffect(() => {
   //   const interval = setInterval(() => {
