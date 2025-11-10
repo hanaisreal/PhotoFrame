@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent,
   type ReactNode,
   type RefObject,
@@ -65,6 +66,8 @@ const COUNTDOWN_START = 3;
 const BETWEEN_SHOTS_DELAY = 5000;
 const DEFAULT_CAPTURE_COUNT = 4;
 const DEFAULT_VIDEO_RATIO = 16 / 9;
+const MAX_PREVIEW_WIDTH = 480;
+const MAX_PREVIEW_HEIGHT = 720;
 
 const delay = (ms: number) =>
   new Promise((resolve) => {
@@ -1081,6 +1084,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
         throw new Error("캔버스를 초기화하지 못했습니다.");
       }
 
+      // Draw background
       ctx.fillStyle = template.layout.frame.backgroundColor;
       ctx.fillRect(
         0,
@@ -1089,6 +1093,49 @@ export const BoothView = ({ template }: BoothViewProps) => {
         template.layout.canvas.height,
       );
 
+      // 1. Draw stickers first (behind photos)
+      await Promise.all(
+        template.stickers.map(async (sticker) => {
+          const image = await loadImage(sticker.dataUrl);
+          ctx.save();
+          ctx.translate(sticker.x + (sticker.width * sticker.scaleX) / 2, sticker.y + (sticker.height * sticker.scaleY) / 2);
+          ctx.rotate((sticker.rotation * Math.PI) / 180);
+          ctx.drawImage(
+            image,
+            -(sticker.width * sticker.scaleX) / 2,
+            -(sticker.height * sticker.scaleY) / 2,
+            sticker.width * sticker.scaleX,
+            sticker.height * sticker.scaleY
+          );
+          ctx.restore();
+        })
+      );
+
+      // 2. Draw text elements from template data
+      template.texts?.forEach((text) => {
+        ctx.save();
+        ctx.translate(text.x + text.width / 2, text.y);
+        ctx.rotate((text.rotation * Math.PI) / 180);
+        ctx.fillStyle = text.color;
+        ctx.font = `${text.fontSize}px ${text.fontFamily}`;
+        ctx.textAlign = text.align;
+        ctx.fillText(text.content, -text.width / 2, 0);
+        ctx.restore();
+      });
+
+      // 3. Draw bottom text from layout
+      if (template.layout.bottomText.content) {
+        ctx.fillStyle = template.layout.bottomText.color;
+        ctx.font = `${template.layout.bottomText.fontSize}px ${template.layout.bottomText.fontFamily}`;
+        ctx.textAlign = "center";
+        ctx.fillText(
+          template.layout.bottomText.content,
+          template.layout.canvas.width / 2,
+          template.layout.canvas.height - template.layout.bottomText.offsetY
+        );
+      }
+
+      // 4. Draw slot images (photos) - IN FRONT of decorative elements
       await Promise.all(
         slots.map(async (slot) => {
           const shotIndex = slotAssignments[slot.id];
@@ -1114,7 +1161,33 @@ export const BoothView = ({ template }: BoothViewProps) => {
         }),
       );
 
-      // Skip drawing legacy overlay assets to ensure the final PNG reflects the edited layout only
+      // 5. Draw floating images from template data (background-removed images, etc.) - ON TOP of slot photos
+      await Promise.all(
+        template.images.filter(img => !img.slotId).map(async (image) => {
+          const img = await loadImage(image.dataUrl);
+          ctx.save();
+          ctx.translate(image.x + (image.width * image.scaleX) / 2, image.y + (image.height * image.scaleY) / 2);
+          ctx.rotate((image.rotation * Math.PI) / 180);
+          ctx.drawImage(
+            img,
+            -(image.width * image.scaleX) / 2,
+            -(image.height * image.scaleY) / 2,
+            image.width * image.scaleX,
+            image.height * image.scaleY
+          );
+          ctx.restore();
+        })
+      );
+
+      // 6. Draw frame border (on top of everything)
+      ctx.strokeStyle = template.layout.frame.color;
+      ctx.lineWidth = template.layout.frame.thickness;
+      ctx.strokeRect(
+        template.layout.frame.thickness / 2,
+        template.layout.frame.thickness / 2,
+        template.layout.canvas.width - template.layout.frame.thickness,
+        template.layout.canvas.height - template.layout.frame.thickness
+      );
 
       const final = canvas.toDataURL("image/png");
       setFinalImage(final);
@@ -1133,6 +1206,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
     template.layout.canvas.height,
     template.layout.canvas.width,
     template.layout.frame.backgroundColor,
+    template.stickers,
+    template.images,
+    template.texts,
+    template.layout.bottomText,
+    template.layout.frame.color,
+    template.layout.frame.thickness,
   ]);
 
   const isAllSlotsAssigned = useMemo(
@@ -1295,16 +1374,25 @@ export const BoothView = ({ template }: BoothViewProps) => {
   })();
 
   if (stage === "arrange") {
-    const canvasAspectRatio =
-      template.layout.canvas.width / template.layout.canvas.height;
+    const canvasWidth = template.layout.canvas.width;
+    const canvasHeight = template.layout.canvas.height;
+    const canvasAspectRatio = canvasWidth / canvasHeight;
     const assignedSlotCount = slots.filter(
       (slot) => slotAssignments[slot.id] !== null,
     ).length;
-    const frameContainerStyle = {
+    const widthScale = Math.min(MAX_PREVIEW_WIDTH / canvasWidth, 1);
+    const heightScale = Math.min(MAX_PREVIEW_HEIGHT / canvasHeight, 1);
+    const scale = Math.min(widthScale, heightScale);
+    const displayWidth = canvasWidth * scale;
+    const displayHeight = canvasHeight * scale;
+    const slotScaleX = displayWidth / canvasWidth;
+    const slotScaleY = displayHeight / canvasHeight;
+    const frameContainerStyle: CSSProperties = {
       aspectRatio: canvasAspectRatio,
-      height: "60vh",
-      width: "auto",
+      width: `${displayWidth}px`,
+      height: `${displayHeight}px`,
       maxWidth: "100%",
+      backgroundColor: "transparent",
     };
 
     return (
@@ -1338,75 +1426,157 @@ export const BoothView = ({ template }: BoothViewProps) => {
 
             <div className="mt-5 rounded-2xl bg-slate-100 p-4">
               <div
-                className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-inner"
+                className="relative mx-auto overflow-hidden rounded-2xl shadow-inner"
                 style={frameContainerStyle}
               >
+                {/* Reconstruct frame from template data instead of overlay */}
                 <div
-                  className="absolute inset-0 z-10"
-                  style={{ backgroundColor: template.layout.frame.backgroundColor }}
-                >
-                  {slots.map((slot) => {
-                    const slotLeft = (slot.x / template.layout.canvas.width) * 100;
-                    const slotTop = (slot.y / template.layout.canvas.height) * 100;
-                  const slotWidth =
-                    (slot.width / template.layout.canvas.width) * 100;
-                  const slotHeight =
-                    (slot.height / template.layout.canvas.height) * 100;
-                  const slotCornerRadius =
-                    (template.layout.frame.cornerRadius / slot.width) * 100;
+                  className="absolute inset-0 z-0"
+                  style={{
+                    backgroundColor: template.layout.frame.backgroundColor,
+                    borderRadius: `${template.layout.frame.cornerRadius * Math.min(slotScaleX, slotScaleY)}px`
+                  }}
+                />
+
+                {/* Bottom text */}
+                {template.layout.bottomText.content && (
+                  <div
+                    className="absolute z-[15] text-center pointer-events-none"
+                    style={{
+                      bottom: `${template.layout.bottomText.offsetY * slotScaleY}px`,
+                      left: 0,
+                      right: 0,
+                      fontSize: `${template.layout.bottomText.fontSize * Math.min(slotScaleX, slotScaleY)}px`,
+                      color: template.layout.bottomText.color,
+                      fontFamily: template.layout.bottomText.fontFamily,
+                      letterSpacing: `${template.layout.bottomText.letterSpacing}px`,
+                    }}
+                  >
+                    {template.layout.bottomText.content}
+                  </div>
+                )}
+
+                {/* Render stickers from template */}
+                {template.stickers.map((sticker) => (
+                  <img
+                    key={sticker.id}
+                    src={sticker.dataUrl}
+                    alt={sticker.name}
+                    className="absolute pointer-events-none z-[10]"
+                    style={{
+                      left: `${sticker.x * slotScaleX}px`,
+                      top: `${sticker.y * slotScaleY}px`,
+                      width: `${sticker.width * sticker.scaleX * slotScaleX}px`,
+                      height: `${sticker.height * sticker.scaleY * slotScaleY}px`,
+                      transform: `rotate(${sticker.rotation}deg)`,
+                    }}
+                  />
+                ))}
+
+                {/* Render text elements from template */}
+                {template.texts?.map((text) => (
+                  <div
+                    key={text.id}
+                    className="absolute pointer-events-none z-[10]"
+                    style={{
+                      left: `${text.x * slotScaleX}px`,
+                      top: `${text.y * slotScaleY}px`,
+                      width: `${text.width * slotScaleX}px`,
+                      fontSize: `${text.fontSize * Math.min(slotScaleX, slotScaleY)}px`,
+                      color: text.color,
+                      fontFamily: text.fontFamily,
+                      textAlign: text.align,
+                      transform: `rotate(${text.rotation}deg)`,
+                    }}
+                  >
+                    {text.content}
+                  </div>
+                ))}
+
+                {slots.map((slot) => {
+                  const slotLeft = slot.x * slotScaleX;
+                  const slotTop = slot.y * slotScaleY;
+                  const slotWidth = slot.width * slotScaleX;
+                  const slotHeight = slot.height * slotScaleY;
+                  const slotCornerRadiusPx =
+                    template.layout.frame.cornerRadius * slotScaleX;
                   const assignedIndex = slotAssignments[slot.id];
                   const assignedImage =
                     typeof assignedIndex === "number"
                       ? capturedShots[assignedIndex]
                       : null;
-                    const isActive = activeSlotId === slot.id;
-                    return (
-                      <div
-                        key={slot.id}
-                        className={`absolute z-20 flex cursor-pointer items-center justify-center overflow-hidden transition ${
-                          assignedImage
-                            ? ""
-                            : "border border-dashed border-white/50 bg-white/20"
-                        } ${isActive ? "ring-2 ring-white/80" : ""}`}
+                  const isActive = activeSlotId === slot.id;
+                  return (
+                    <div
+                      key={slot.id}
+                      className={`absolute z-[50] flex cursor-pointer items-center justify-center overflow-hidden transition ${
+                        assignedImage
+                          ? ""
+                          : "border border-dashed border-white/50 bg-white/20"
+                      } ${isActive ? "ring-2 ring-white/80" : ""}`}
                         style={{
-                          left: `${slotLeft}%`,
-                          top: `${slotTop}%`,
-                          width: `${slotWidth}%`,
-                          height: `${slotHeight}%`,
-                          borderRadius: `${slotCornerRadius}%`,
+                          left: `${slotLeft}px`,
+                          top: `${slotTop}px`,
+                          width: `${slotWidth}px`,
+                          height: `${slotHeight}px`,
+                          borderRadius: `${slotCornerRadiusPx}px`,
                         }}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={(event) => handleSlotDrop(event, slot.id)}
-                        onClick={() => setActiveSlotId(slot.id)}
-                      >
-                        {assignedImage ? (
-                          <>
-                            <img
-                              src={assignedImage}
-                              alt="선택된 사진"
-                              className="h-full w-full object-cover"
-                            />
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                clearSlotAssignment(slot.id);
-                              }}
-                              className="absolute right-2 top-2 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow"
-                            >
-                              비우기
-                            </button>
-                          </>
-                        ) : (
-                          <span className="select-none px-2 text-center text-[10px] font-semibold text-white/70">
-                            사진을 드래그해서 배치하세요
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Overlay hidden during arrangement to keep slot drop targets clear */}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => handleSlotDrop(event, slot.id)}
+                      onClick={() => setActiveSlotId(slot.id)}
+                    >
+                      {assignedImage ? (
+                        <>
+                          <img
+                            src={assignedImage}
+                            alt="선택된 사진"
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              clearSlotAssignment(slot.id);
+                            }}
+                            className="absolute right-2 top-2 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow"
+                          >
+                            비우기
+                          </button>
+                        </>
+                      ) : (
+                        <span className="select-none px-2 text-center text-[10px] font-semibold text-white/70">
+                          사진을 드래그해서 배치하세요
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Render floating images from template (background-removed images, etc.) - AFTER slots to be in front */}
+                {template.images.filter(img => !img.slotId).map((image) => (
+                  <img
+                    key={image.id}
+                    src={image.dataUrl}
+                    alt="Template element"
+                    className="absolute pointer-events-none z-[55]"
+                    style={{
+                      left: `${image.x * slotScaleX}px`,
+                      top: `${image.y * slotScaleY}px`,
+                      width: `${image.width * image.scaleX * slotScaleX}px`,
+                      height: `${image.height * image.scaleY * slotScaleY}px`,
+                      transform: `rotate(${image.rotation}deg)`,
+                    }}
+                  />
+                ))}
+
+                {/* Frame border - rendered last to be on top */}
+                <div
+                  className="absolute inset-0 z-[60] pointer-events-none"
+                  style={{
+                    border: `${template.layout.frame.thickness * Math.min(slotScaleX, slotScaleY)}px solid ${template.layout.frame.color}`,
+                    borderRadius: `${template.layout.frame.cornerRadius * Math.min(slotScaleX, slotScaleY)}px`
+                  }}
+                />
               </div>
             </div>
 

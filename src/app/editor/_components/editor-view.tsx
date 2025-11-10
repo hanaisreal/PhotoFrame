@@ -30,7 +30,7 @@ type EditorStep = {
 export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const stageRef = useRef<Konva.Stage>(null!);
   const [currentSlug, setCurrentSlug] = useState<string>(() =>
-    initialTemplate?.slug ?? createTemplateSlug(),
+    initialTemplate?.slug ?? "",
   );
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -61,11 +61,19 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const addText = useEditorStore((state) => state.addText);
   const updateTextElement = useEditorStore((state) => state.updateText);
   const removeText = useEditorStore((state) => state.removeText);
+  const removeImageBackground = useEditorStore((state) => state.removeImageBackground);
   const setOverlayDataUrl = useEditorStore((state) => state.setOverlayDataUrl);
   const overlayDataUrl = useEditorStore((state) => state.overlayDataUrl);
   const texts = useEditorStore((state) => state.texts);
   const loadTemplate = useEditorStore((state) => state.loadTemplate);
   const reset = useEditorStore((state) => state.reset);
+
+  // Generate slug on client side to avoid hydration mismatch
+  useEffect(() => {
+    if (!initialTemplate && !currentSlug) {
+      setCurrentSlug(createTemplateSlug());
+    }
+  }, [currentSlug, initialTemplate]);
 
   useEffect(() => {
     if (initialTemplate) {
@@ -81,7 +89,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       setCurrentSlug(initialTemplate.slug);
     } else {
       reset();
-      setCurrentSlug(createTemplateSlug());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTemplate?.slug]);
@@ -604,9 +611,14 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const handleSaveTemplate = async () => {
     const stage = stageRef.current;
     let nextOverlay = overlayDataUrl;
-    if (!nextOverlay && stage) {
+
+    // Only generate new overlay if we don't have one yet
+    if (stage && !overlayDataUrl) {
       nextOverlay = exportStageWithTransparentSlots(stage);
       setOverlayDataUrl(nextOverlay);
+    } else if (stage && overlayDataUrl) {
+      // If we already have an overlay, use it for saving but don't regenerate
+      nextOverlay = overlayDataUrl;
     }
 
     try {
@@ -619,9 +631,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         images,
         stickers,
         texts,
-        overlayDataUrl:
-          nextOverlay ??
-          (stage ? exportStageWithTransparentSlots(stage) : ""),
+        overlayDataUrl: nextOverlay ?? "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -640,29 +650,17 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const handleRemoveBackground = async (image: ImageElement) => {
     try {
       setBackgroundProcessingId(image.id);
-      const response = await fetch("/api/remove-background", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: image.dataUrl }),
-      });
+      const success = await removeImageBackground(image.id);
 
-      if (!response.ok) {
-        const message = await response
-          .json()
-          .catch(() => ({ error: "배경제거에 실패했습니다." }));
-        throw new Error(message.error ?? "배경제거에 실패했습니다.");
+      if (!success) {
+        throw new Error("배경 제거에 실패했습니다.");
       }
 
-      const data = (await response.json()) as { imageBase64: string };
-      updateImage(image.id, {
-        dataUrl: data.imageBase64,
-        backgroundRemoved: true,
-      });
       setErrorMessage(null);
     } catch (error) {
       console.error(error);
       setErrorMessage(
-        "배경 제거에 실패했습니다. REMOVE_BG_API_KEY 환경 변수를 확인해주세요.",
+        "배경 제거에 실패했습니다. 배경 제거 서비스가 실행되고 있는지 확인해주세요.",
       );
     } finally {
       setBackgroundProcessingId(null);
@@ -791,18 +789,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         <div className="flex min-h-[calc(100vh-120px)] items-center justify-center rounded-3xl bg-white p-4 shadow-sm overflow-hidden">
           <EditorCanvas stageRef={stageRef} />
         </div>
-        {overlayDataUrl ? (
-          <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
-            <h3 className="text-sm font-semibold text-gray-700">
-              프레임 미리보기 (PNG)
-            </h3>
-            <img
-              src={overlayDataUrl}
-              alt="프레임 미리보기"
-              className="mt-3 w-full rounded-2xl border border-gray-200"
-            />
-          </div>
-        ) : null}
       </div>
     </div>
   );

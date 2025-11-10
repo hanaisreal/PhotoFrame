@@ -49,6 +49,7 @@ interface EditorActions {
     },
   ) => void;
   removeImage: (id: string) => void;
+  removeImageBackground: (id: string) => Promise<boolean>;
   addSticker: (input: Omit<StickerElement, "id"> & { id?: string }) => string;
   updateSticker: (
     id: string,
@@ -173,6 +174,50 @@ export const useEditorStore = create<EditorState & EditorActions>(
             : state.selection,
         isDirty: true,
       })),
+    removeImageBackground: async (id) => {
+      const state = get();
+      const image = state.images.find((img) => img.id === id);
+      if (!image) return false;
+
+      try {
+        const response = await fetch("/api/remove-background", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageBase64: image.dataUrl,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error("Background removal failed:", error);
+          return false;
+        }
+
+        const result = await response.json();
+
+        set((state) => ({
+          images: state.images.map((img) =>
+            img.id === id
+              ? {
+                  ...img,
+                  dataUrl: result.imageBase64,
+                  slotId: undefined, // Convert to floating image for easier manipulation
+                  backgroundRemoved: true,
+                }
+              : img,
+          ),
+          isDirty: true,
+        }));
+
+        return true;
+      } catch (error) {
+        console.error("Background removal error:", error);
+        return false;
+      }
+    },
     addSticker: (input) => {
       const id = input.id ?? `st-${nanoid(8)}`;
       set((state) => ({

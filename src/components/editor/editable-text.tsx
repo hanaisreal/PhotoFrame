@@ -82,6 +82,7 @@ export const EditableText = ({
       listening
       stroke={isSelected ? "#2563eb" : undefined}
       strokeWidth={isSelected ? 0.5 : 0}
+      name="editable-text"
     />
   );
 };

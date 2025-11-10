@@ -10,7 +10,9 @@ import {
   Text,
   Transformer,
   Line,
+  Image as KonvaImage,
 } from "react-konva";
+import useImage from "use-image";
 
 import { EditableImage } from "@/components/editor/editable-image";
 import { EditableText } from "@/components/editor/editable-text";
@@ -29,11 +31,24 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const images = useEditorStore((state) => state.images);
   const stickers = useEditorStore((state) => state.stickers);
   const texts = useEditorStore((state) => state.texts);
+  const overlayDataUrl = useEditorStore((state) => state.overlayDataUrl);
   const selection = useEditorStore((state) => state.selection);
   const setSelection = useEditorStore((state) => state.setSelection);
   const updateImage = useEditorStore((state) => state.updateImage);
   const updateSticker = useEditorStore((state) => state.updateSticker);
   const updateTextElement = useEditorStore((state) => state.updateText);
+
+  const [overlayImage] = useImage(overlayDataUrl || "");
+
+  // The overlay should fill the canvas like in booth view
+  const overlayDimensions = useMemo(() => {
+    if (!overlayImage) return null;
+
+    return {
+      width: layout.canvas.width,
+      height: layout.canvas.height,
+    };
+  }, [overlayImage, layout.canvas.width, layout.canvas.height]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -229,83 +244,104 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         onTouchStart={handleStageDeselection}
       >
         <Layer>
-            <Rect
-              x={0}
-              y={0}
-              width={layout.canvas.width}
-              height={layout.canvas.height}
-              fill={layout.frame.backgroundColor}
-              cornerRadius={layout.frame.cornerRadius}
-              name="frame-base"
-              listening={false}
-            />
-            {layout.slots.map((slot) => (
-              <Group
-                key={slot.id}
-                x={slot.x}
-                y={slot.y}
-                clip={{
-                  x: 0,
-                  y: 0,
-                  width: slot.width,
-                  height: slot.height,
-                }}
-              >
-                <Rect
-                  x={0}
-                  y={0}
-                  width={slot.width}
-                  height={slot.height}
-                  cornerRadius={layout.frame.cornerRadius}
-                  name="slot-background"
-                  fill={SLOT_BACKGROUND}
-                  stroke="transparent"
-                  strokeWidth={0}
-                  listening={false}
-                />
-                <Line
-                  points={[0, 0, slot.width, slot.height]}
-                  stroke="#d4d4d8"
-                  strokeWidth={2}
-                  dash={[10, 6]}
-                  listening={false}
-                />
-                <Line
-                  points={[slot.width, 0, 0, slot.height]}
-                  stroke="#d4d4d8"
-                  strokeWidth={2}
-                  dash={[10, 6]}
-                  listening={false}
-                />
-                {renderSlotImages(slot.id)}
-              </Group>
-            ))}
-            {renderFloatingImages()}
-            {renderStickers()}
-            {renderTexts()}
-            <Rect
-              x={0}
-              y={0}
-              width={layout.canvas.width}
-              height={layout.canvas.height}
-              stroke={layout.frame.color}
-              strokeWidth={layout.frame.thickness}
-              cornerRadius={layout.frame.cornerRadius}
-              listening={false}
-            />
-            {layout.bottomText.content ? (
-              <Text
-                text={layout.bottomText.content}
-                fill={layout.bottomText.color}
-                fontSize={layout.bottomText.fontSize}
-                fontFamily={layout.bottomText.fontFamily}
-                letterSpacing={layout.bottomText.letterSpacing}
-                align="center"
-                width={layout.canvas.width}
+          {/* Always render the live frame structure, never use overlay in editor */}
+          <Rect
+            x={0}
+            y={0}
+            width={layout.canvas.width}
+            height={layout.canvas.height}
+            fill={layout.frame.backgroundColor}
+            cornerRadius={layout.frame.cornerRadius}
+            name="frame-base"
+            listening={false}
+          />
+          {layout.slots.map((slot) => (
+            <Group
+              key={slot.id}
+              x={slot.x}
+              y={slot.y}
+              clip={{
+                x: 0,
+                y: 0,
+                width: slot.width,
+                height: slot.height,
+              }}
+            >
+              <Rect
                 x={0}
-                y={layout.canvas.height - layout.bottomText.offsetY}
+                y={0}
+                width={slot.width}
+                height={slot.height}
+                cornerRadius={layout.frame.cornerRadius}
+                name="slot-background"
+                fill={SLOT_BACKGROUND}
+                stroke="transparent"
+                strokeWidth={0}
+                listening={false}
               />
-            ) : null}
+              <Line
+                points={[0, 0, slot.width, slot.height]}
+                stroke="#d4d4d8"
+                strokeWidth={2}
+                dash={[10, 6]}
+                listening={false}
+              />
+              <Line
+                points={[slot.width, 0, 0, slot.height]}
+                stroke="#d4d4d8"
+                strokeWidth={2}
+                dash={[10, 6]}
+                listening={false}
+              />
+            </Group>
+          ))}
+          <Rect
+            x={0}
+            y={0}
+            width={layout.canvas.width}
+            height={layout.canvas.height}
+            stroke={layout.frame.color}
+            strokeWidth={layout.frame.thickness}
+            cornerRadius={layout.frame.cornerRadius}
+            listening={false}
+          />
+
+          {/* Slot images with clipping */}
+          {layout.slots.map((slot) => (
+            <Group
+              key={`slot-images-${slot.id}`}
+              x={slot.x}
+              y={slot.y}
+              clip={{
+                x: 0,
+                y: 0,
+                width: slot.width,
+                height: slot.height,
+              }}
+            >
+              {renderSlotImages(slot.id)}
+            </Group>
+          ))}
+
+          {/* Floating images and other elements */}
+          {renderFloatingImages()}
+          {renderStickers()}
+          {renderTexts()}
+
+          {layout.bottomText.content ? (
+            <Text
+              text={layout.bottomText.content}
+              fill={layout.bottomText.color}
+              fontSize={layout.bottomText.fontSize}
+              fontFamily={layout.bottomText.fontFamily}
+              letterSpacing={layout.bottomText.letterSpacing}
+              align="center"
+              width={layout.canvas.width}
+              x={0}
+              y={layout.canvas.height - layout.bottomText.offsetY}
+              name="frame-bottom-text"
+            />
+          ) : null}
             <Transformer
               ref={transformerRef}
               rotateEnabled
