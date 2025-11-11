@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import type { FrameSlot, FrameTemplate } from "@/types/frame";
+import { useLanguage } from "@/contexts/language-context";
 
 interface BoothViewProps {
   template: FrameTemplate;
@@ -74,16 +75,17 @@ const delay = (ms: number) =>
     setTimeout(resolve, ms);
   });
 
-const loadImage = (src: string): Promise<HTMLImageElement> =>
+const loadImage = (src: string, t: (key: string) => string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("이미지를 불러오지 못했습니다."));
+    img.onerror = () => reject(new Error(t("error.imageLoadFailed")));
     img.src = src;
   });
 
 
 export const BoothView = ({ template }: BoothViewProps) => {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -223,7 +225,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       });
 
       if (!video) {
-        throw new Error("비디오 요소를 찾지 못했습니다.");
+        throw new Error(t("error.videoElementNotFound"));
       }
 
       if (stream && video.srcObject !== stream) {
@@ -269,7 +271,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
           });
           settled = true;
           cleanup();
-          reject(new Error("비디오 메타데이터 로드에 실패했습니다."));
+          reject(new Error(t("error.videoMetadataLoadFailed")));
         };
 
         function cleanup() {
@@ -304,7 +306,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       });
 
       if (video.videoWidth === 0 || video.videoHeight === 0) {
-        throw new Error("비디오 해상도를 가져오지 못했습니다.");
+        throw new Error(t("error.videoResolutionFailed"));
       }
     },
     [safePlay],
@@ -317,7 +319,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       return streamRef.current !== null;
     }
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      setStreamError("현재 브라우저에서는 카메라를 지원하지 않습니다.");
+      setStreamError(t("error.cameraNotSupported"));
       return false;
     }
 
@@ -419,17 +421,15 @@ export const BoothView = ({ template }: BoothViewProps) => {
       return true;
     } catch (error) {
       console.error(error);
-      let message =
-        "카메라 접근 권한이 필요합니다. 브라우저 설정에서 권한을 허용해주세요.";
+      let message = t("error.cameraPermissionNeeded");
 
       if (error instanceof DOMException) {
         if (error.name === "NotAllowedError" || error.name === "SecurityError") {
-          message =
-            "카메라 권한이 차단되어 있습니다. 주소창 근처의 카메라 아이콘을 눌러 허용으로 변경해주세요.";
+          message = t("error.cameraPermissionDenied");
         } else if (error.name === "NotFoundError") {
-          message = "사용 가능한 카메라 장치를 찾지 못했습니다.";
+          message = t("error.noCameraDevice");
         } else if (error.name === "NotReadableError") {
-          message = "다른 애플리케이션이 카메라를 사용 중입니다. 종료 후 다시 시도해주세요.";
+          message = t("error.cameraInUse");
         }
       }
 
@@ -519,7 +519,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       void ensureVideoPlaying().then((started) => {
         if (!started) {
           setStreamError(
-            "미리보기를 다시 실행하지 못했습니다. 브라우저 설정에서 카메라 권한을 확인하거나 새로고침 후 다시 시도해주세요.",
+            t("error.cameraPermissionNeeded"),
           );
         } else {
           setStreamError(null);
@@ -872,12 +872,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
     console.log('🎥 Starting capture sequence...');
 
     if (!videoRef.current || !canvasRef.current) {
-      abortCapture("카메라 초기화가 완료되지 않았습니다.");
+      abortCapture(t("error.cameraPermissionNeeded"));
       return;
     }
 
     if (!slots.length) {
-      abortCapture("이 템플릿에는 사용할 수 있는 슬롯이 없습니다.");
+      abortCapture(t("error.cameraPermissionNeeded"));
       return;
     }
 
@@ -979,7 +979,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
 
         if (videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) {
           console.error('🎥 Video dimensions still not available after retries');
-          abortCapture("비디오 해상도를 가져올 수 없습니다. 다시 시도해주세요.");
+          abortCapture(t("error.videoResolutionFailed"));
           return;
         }
       }
@@ -1004,7 +1004,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
 
       const slotCapture = drawVideoFrame(overlaySlot);
       if (!slotCapture) {
-        abortCapture("캡처에 실패했습니다. 다시 시도해주세요.");
+        abortCapture(t("error.cameraPermissionNeeded"));
         return;
       }
 
@@ -1072,7 +1072,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       canvas.height = template.layout.canvas.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        throw new Error("캔버스를 초기화하지 못했습니다.");
+        throw new Error(t("error.canvasNotFound"));
       }
 
       // Draw background
@@ -1087,7 +1087,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       // 1. Draw stickers first (behind photos)
       await Promise.all(
         template.stickers.map(async (sticker) => {
-          const image = await loadImage(sticker.dataUrl);
+          const image = await loadImage(sticker.dataUrl, t);
           ctx.save();
           ctx.translate(sticker.x + (sticker.width * sticker.scaleX) / 2, sticker.y + (sticker.height * sticker.scaleY) / 2);
           ctx.rotate((sticker.rotation * Math.PI) / 180);
@@ -1137,7 +1137,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
           if (!capture) {
             return;
           }
-          const image = await loadImage(capture);
+          const image = await loadImage(capture, t);
           ctx.drawImage(
             image,
             0,
@@ -1155,7 +1155,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       // 5. Draw floating images from template data (background-removed images, etc.) - ON TOP of slot photos
       await Promise.all(
         template.images.filter(img => !img.slotId).map(async (image) => {
-          const img = await loadImage(image.dataUrl);
+          const img = await loadImage(image.dataUrl, t);
           ctx.save();
           ctx.translate(image.x + (image.width * image.scaleX) / 2, image.y + (image.height * image.scaleY) / 2);
           ctx.rotate((image.rotation * Math.PI) / 180);
@@ -1186,7 +1186,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       setStage("arrange");
     } catch (error) {
       console.error(error);
-      setStreamError("결과물을 합성하는 중 오류가 발생했습니다.");
+      setStreamError(t("error.imageLoadError"));
     } finally {
       setIsComposing(false);
     }
@@ -1203,6 +1203,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
     template.layout.bottomText,
     template.layout.frame.color,
     template.layout.frame.thickness,
+    t,
   ]);
 
 
@@ -1260,12 +1261,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
 
   const handleConfirmArrangement = useCallback(async () => {
     if (!canGenerateFinalImage) {
-      setArrangementError("적어도 하나의 사진을 배치하거나 편집기에서 이미지를 추가해주세요.");
+      setArrangementError(t("booth.photoArrangementDesc"));
       return;
     }
     setArrangementError(null);
     await composeFinalImage();
-  }, [composeFinalImage, canGenerateFinalImage]);
+  }, [composeFinalImage, canGenerateFinalImage, t]);
 
   const handleShotDragStart = (
     event: DragEvent<HTMLButtonElement>,
@@ -1296,7 +1297,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
       slots[0]?.id ??
       null;
     if (!fallbackSlot) {
-      setArrangementError("배치할 슬롯이 없습니다. 템플릿 구성을 확인해주세요.");
+      setArrangementError(t("booth.photoArrangementDesc"));
       return;
     }
     assignShotToSlot(fallbackSlot, shotIndex);
@@ -1315,7 +1316,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
     }
 
     if (!videoRef.current || !canvasRef.current) {
-      setStreamError("카메라 초기화가 완료되지 않았습니다. 잠시 후 다시 시도해주세요.");
+      setStreamError(t("error.cameraPermissionNeeded"));
       return;
     }
 
@@ -1352,21 +1353,21 @@ export const BoothView = ({ template }: BoothViewProps) => {
   const statusLabel = (() => {
     switch (status) {
       case "countdown":
-        return "카운트다운 중...";
+        return t("status.countdownActive");
       case "capturing":
-        return "촬영 중입니다!";
+        return t("status.captureInProgress");
       case "waiting":
-        return "다음 컷까지 잠시 대기해주세요.";
+        return t("status.waitingBetweenShots");
       case "processing":
-        return "결과물 합성 중...";
+        return t("status.composingResult");
       case "arranging":
-        return "촬영이 끝났어요. 사진 배치 화면으로 이동합니다.";
+        return t("status.shootingComplete");
       case "finished":
-        return "촬영이 완료되었습니다!";
+        return t("status.allComplete");
       default:
         return hasCameraAccess
-          ? "준비가 되면 아래 버튼을 눌러 촬영을 시작하세요."
-          : "촬영 전에 카메라 권한 요청 버튼을 눌러 허용해주세요.";
+          ? t("status.ready")
+          : t("status.needPermission");
     }
   })();
 
@@ -1399,18 +1400,18 @@ export const BoothView = ({ template }: BoothViewProps) => {
         canvasHeight={template.layout.canvas.height}
       >
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 max-h-[90vh] overflow-hidden">
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
-                  사진 배치
+                  {t("booth.photoArrangement")}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  촬영한 사진을 원하는 프레임 위치에 드래그 앤 드롭하세요.
+                  {t("booth.photoArrangementDesc")}
                 </p>
               </div>
               <span className="text-xs font-semibold text-slate-500">
-                {assignedSlotCount}/{slots.length} 슬롯 배치 완료
+                {assignedSlotCount}/{slots.length} {t("booth.slotsCompleted")}
               </span>
             </div>
 
@@ -1421,7 +1422,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
               </div>
             ) : null}
 
-            <div className="mt-5 rounded-2xl bg-slate-100 p-4">
+            <div className="mt-5 rounded-2xl bg-slate-100 p-4 max-h-[60vh] overflow-auto">
               <div
                 className="relative mx-auto overflow-hidden rounded-2xl shadow-inner"
                 style={frameContainerStyle}
@@ -1526,7 +1527,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                         <>
                           <img
                             src={assignedImage}
-                            alt="선택된 사진"
+                            alt={t("booth.selectedPhoto")}
                             className="h-full w-full object-cover"
                           />
                           <button
@@ -1537,12 +1538,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
                             }}
                             className="absolute right-2 top-2 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow"
                           >
-                            비우기
+                            {t("booth.clear")}
                           </button>
                         </>
                       ) : (
                         <span className="select-none px-2 text-center text-[10px] font-semibold text-white/70">
-                          사진을 드래그해서 배치하세요
+                          {t("booth.dragToPlace")}
                         </span>
                       )}
                     </div>
@@ -1589,7 +1590,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 ) : ( 
                   <Check className="h-4 w-4" />
                 )}
-                배치 확정하기
+                {t("booth.confirmArrangement")}
               </button>
               <button
                 type="button"
@@ -1597,7 +1598,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 onClick={handleReset}
               >
                 <RotateCcw className="h-4 w-4" />
-                다시 촬영하기
+                {t("booth.reshoot")}
               </button>
               {finalImage ? (
                 <button
@@ -1606,7 +1607,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                   onClick={handleDownload}
                 >
                   <Download className="h-4 w-4" />
-                  PNG 다운로드
+                  {t("booth.downloadPNG")}
                 </button>
               ) : null}
             </div>
@@ -1614,18 +1615,18 @@ export const BoothView = ({ template }: BoothViewProps) => {
             {isComposing ? (
               <div className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                결과물을 합성하고 있습니다...
+                {t("booth.composing")}
               </div>
             ) : null}
 
             {finalImage ? (
               <div className="mt-5">
                 <h3 className="text-sm font-semibold text-slate-700">
-                  최종 결과물
+                  {t("booth.finalResult")}
                 </h3>
                 <img
                   src={finalImage}
-                  alt="최종 결과물"
+                  alt={t("booth.finalResult")}
                   className="mt-2 w-full rounded-2xl border border-slate-200"
                 />
               </div>
@@ -1634,11 +1635,11 @@ export const BoothView = ({ template }: BoothViewProps) => {
 
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
             <h3 className="text-sm font-semibold text-slate-900">
-              촬영한 사진 목록
+              {t("booth.capturedPhotos")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              사진을 드래그하거나 클릭해 프레임에 배치하세요. ({capturedShots.filter(Boolean).length}
-              /{captureCount} 컷)
+              {t("booth.capturedPhotosDesc")} ({capturedShots.filter(Boolean).length}
+              /{captureCount} {t("booth.cuts")})
             </p>
             {/* Debug info for captured shots */}
             <div className="mt-2 text-xs text-slate-400">
@@ -1664,12 +1665,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
                     {shot ? (
                       <img
                         src={shot}
-                        alt={`촬영 컷 ${index + 1}`}
+                        alt={`${index + 1}${t("editor.shotNumber")}`}
                         className="h-full w-full object-cover"
                       />
                     ) : (
                       <div className="flex flex-1 items-center justify-center">
-                        촬영 대기중
+                        {t("booth.waitingForShoot")}
                       </div>
                     )}
                     <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
@@ -1677,7 +1678,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                     </span>
                     {isUsed ? (
                       <span className="absolute right-2 top-2 rounded-full bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold text-white">
-                        사용중
+                        {t("booth.inUse")}
                       </span>
                     ) : null}
                   </button>
@@ -1728,7 +1729,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
             {!hasCameraAccess ? (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-black/70 p-6 text-center text-white">
                 <p className="text-sm leading-relaxed text-slate-200">
-                  카메라 권한이 필요합니다. 아래 버튼을 눌러 브라우저 권한 요청을 허용해주세요.
+                  {t("booth.cameraPermissionNeeded")}
                 </p>
                 <button
                   type="button"
@@ -1739,12 +1740,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
                   {isRequestingCamera ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      요청 중...
+                      {t("booth.requesting")}
                     </>
                   ) : (
                     <>
                       <Camera className="h-4 w-4" />
-                      카메라 권한 요청
+                      {t("booth.requestCameraPermission")}
                     </>
                   )}
                 </button>
@@ -1772,15 +1773,14 @@ export const BoothView = ({ template }: BoothViewProps) => {
               {template.name}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              총 {captureCount}컷을 순서대로 촬영합니다. 완성 프레임에는{" "}
-              {slots.length}컷이 배치됩니다.
+              {t("booth.totalShotsInfo")} {captureCount}{t("booth.totalShotsInfo2")} {slots.length}{t("booth.totalShotsInfo3")}
             </p>
             <p className="mt-3 rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-600">
               {statusLabel}
             </p>
             {stage === "capture" ? (
               <p className="mt-1 text-xs font-medium text-slate-500">
-                진행 상태: {Math.min(currentShotIndex + 1, captureCount)}/{captureCount}
+                {t("booth.progress")} {Math.min(currentShotIndex + 1, captureCount)}/{captureCount}
               </p>
             ) : null}
 
@@ -1805,12 +1805,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 {isRequestingCamera ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    권한 요청 중...
+                    {t("booth.requesting")}
                   </>
                 ) : (
                   <>
                     <Camera className="h-4 w-4" />
-                    카메라 권한 요청
+                    {t("booth.requestCameraPermission")}
                   </>
                 )}
               </button>
@@ -1829,12 +1829,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
               {status === "countdown" || status === "capturing" ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  촬영 중...
+                  {t("status.captureInProgress")}
                 </>
               ) : (
                 <>
                   <Camera className="h-4 w-4" />
-                  촬영 시작하기
+                  {t("booth.startShooting")}
                 </>
               )}
             </button>
@@ -1844,13 +1844,13 @@ export const BoothView = ({ template }: BoothViewProps) => {
               onClick={handleReset}
             >
               <RotateCcw className="h-4 w-4" />
-              다시 준비하기
+              {t("booth.reshoot")}
             </button>
           </div>
 
           <div>
             <h3 className="text-sm font-semibold text-slate-700">
-              촬영 결과 미리보기
+              {t("booth.capturedPhotos")}
             </h3>
             <div className="mt-3 grid grid-cols-2 gap-3">
               {capturedShots.map((shot, index) => {
@@ -1868,12 +1868,12 @@ export const BoothView = ({ template }: BoothViewProps) => {
                     {shot ? (
                       <img
                         src={shot}
-                        alt={`컷 ${index + 1}`}
+                        alt={`${index + 1}${t("editor.shotNumber")}`}
                         className="h-full w-full object-cover"
                       />
                     ) : (
                       <div className="flex h-24 items-center justify-center text-xs text-slate-400">
-                        {index + 1}컷 대기중
+                        {index + 1}{t("editor.shotNumber")} {t("booth.waitingForShoot")}
                       </div>
                     )}
                     {isActive ? (

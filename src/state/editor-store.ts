@@ -257,7 +257,7 @@ export const useEditorStore = create<EditorState & EditorActions>(
     addText: (input) => {
       const id = input?.id ?? `txt-${nanoid(8)}`;
       const defaults: Omit<TextElement, "id"> = {
-        content: "새 텍스트",
+        content: "새 텍스트", // This will be translated in the UI components
         x: 40,
         y: 40,
         width: 400,

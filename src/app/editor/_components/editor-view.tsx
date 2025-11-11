@@ -6,6 +6,8 @@ import Link from "next/link";
 import type Konva from "konva";
 import { Download, ImageIcon, Loader2, Share2, Sparkles, Trash } from "lucide-react";
 
+import { useLanguage } from "@/contexts/language-context";
+
 import { EditorCanvas } from "@/components/editor/editor-canvas";
 import { persistTemplate } from "@/app/editor/actions";
 import { createTemplateSlug } from "@/lib/slug";
@@ -27,6 +29,7 @@ type EditorStep = {
 };
 
 export const EditorView = ({ initialTemplate }: EditorViewProps) => {
+  const { t } = useLanguage();
   const stageRef = useRef<Konva.Stage>(null!);
   const [currentSlug, setCurrentSlug] = useState<string>(() =>
     initialTemplate?.slug ?? "",
@@ -96,20 +99,20 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     () =>
       layout.slots.map((slot, index) => ({
         id: slot.id,
-        label: `${index + 1}번 컷`,
+        label: `${index + 1}${t("editor.shotNumber")}`,
       })),
-    [layout.slots],
+    [layout.slots, t],
   );
 
   const renderTemplateInfoStep = () => (
     <div className="space-y-4 text-sm">
       <div>
         <h2 className="text-base font-semibold text-slate-900">
-          템플릿 정보
+          {t("editor.templateInfo")}
         </h2>
         <div className="mt-4 space-y-4">
           <label className="grid gap-1">
-            <span className="font-medium text-gray-600">프로젝트 이름</span>
+            <span className="font-medium text-gray-600">{t("editor.projectName")}</span>
             <input
               type="text"
               value={templateName}
@@ -118,7 +121,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             />
           </label>
           <label className="grid gap-1">
-            <span className="font-medium text-gray-600">설명 (선택)</span>
+            <span className="font-medium text-gray-600">{t("editor.description")}</span>
             <textarea
               value={templateDescription}
               onChange={(event) => setTemplateDescription(event.target.value)}
@@ -135,11 +138,11 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     <div className="space-y-4 text-sm">
       <div>
         <h2 className="text-base font-semibold text-slate-900">
-          레이아웃 & 프레임
+          {t("editor.layoutFrame")}
         </h2>
         <div className="mt-4 space-y-3">
           <label className="flex flex-col gap-2">
-            <span className="font-medium text-gray-600">컷 수</span>
+            <span className="font-medium text-gray-600">{t("editor.cutCount")}</span>
             <select
               className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900/20"
               value={layout.slots.length}
@@ -147,14 +150,14 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             >
               {[2, 3, 4, 5].map((count) => (
                 <option key={count} value={count}>
-                  {count} 컷
+                  {count}{t("editor.cuts")}
                 </option>
               ))}
             </select>
           </label>
           <div className="grid gap-3 rounded-2xl bg-slate-50 p-4">
             <label className="flex items-center justify-between text-sm text-gray-600">
-              <span>프레임 컬러</span>
+              <span>{t("editor.frameColor")}</span>
               <input
                 type="color"
                 value={layout.frame.color}
@@ -165,7 +168,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
               />
             </label>
             <label className="flex items-center justify-between text-sm text-gray-600">
-              <span>배경 컬러</span>
+              <span>{t("editor.backgroundColor")}</span>
               <input
                 type="color"
                 value={layout.frame.backgroundColor}
@@ -177,7 +180,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             </label>
             <label className="grid gap-2">
               <span className="text-sm text-gray-600">
-                프레임 두께 ({layout.frame.thickness.toFixed(0)} px)
+                {t("editor.frameThickness")} ({layout.frame.thickness.toFixed(0)}{t("editor.px")})
               </span>
               <input
                 type="range"
@@ -198,10 +201,10 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const renderTextStep = () => (
     <div className="space-y-6 text-sm">
       <div>
-        <h2 className="text-base font-semibold text-slate-900">하단 문구</h2>
+        <h2 className="text-base font-semibold text-slate-900">{t("editor.bottomText")}</h2>
         <div className="mt-4 space-y-3">
           <label className="grid gap-1">
-            <span className="font-medium text-gray-600">문구</span>
+            <span className="font-medium text-gray-600">{t("editor.text")}</span>
             <input
               type="text"
               value={layout.bottomText.content}
@@ -212,7 +215,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             />
           </label>
           <label className="flex items-center justify-between text-sm text-gray-600">
-            <span>텍스트 컬러</span>
+            <span>{t("editor.textColor")}</span>
             <input
               type="color"
               value={layout.bottomText.color}
@@ -224,7 +227,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           </label>
           <label className="grid gap-2">
             <span className="text-sm text-gray-600">
-              폰트 크기 ({layout.bottomText.fontSize.toFixed(0)} px)
+              {t("editor.fontSize")} ({layout.bottomText.fontSize.toFixed(0)}{t("editor.px")})
             </span>
             <input
               type="range"
@@ -239,18 +242,18 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         </div>
       </div>
       <div>
-        <h2 className="text-base font-semibold text-slate-900">텍스트 상자</h2>
+        <h2 className="text-base font-semibold text-slate-900">{t("editor.textBox")}</h2>
         <div className="mt-3 flex flex-col gap-3">
           <button
             type="button"
             onClick={() => addText()}
             className="rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm font-medium text-gray-600 transition hover:border-slate-900 hover:text-slate-900"
           >
-            텍스트 추가
+            {t("editor.addText")}
           </button>
           {texts.length === 0 ? (
             <p className="text-xs text-gray-500">
-              텍스트 상자를 추가하면 자유롭게 문구를 배치할 수 있습니다.
+              {t("editor.textBoxDescription")}
             </p>
           ) : null}
           {texts.map((text) => (
@@ -260,18 +263,18 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             >
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-800">
-                  텍스트 #{text.id.slice(-4)}
+                  {t("editor.textId")}{text.id.slice(-4)}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeText(text.id)}
                   className="text-xs font-semibold text-rose-500 hover:text-rose-600"
                 >
-                  삭제
+                  {t("editor.delete")}
                 </button>
               </div>
               <label className="mt-2 grid gap-1 text-xs">
-                <span className="font-medium text-gray-600">문구</span>
+                <span className="font-medium text-gray-600">{t("editor.textContent")}</span>
                 <input
                   type="text"
                   value={text.content}
@@ -285,7 +288,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
               </label>
               <div className="mt-2 grid grid-cols-2 gap-3 text-xs text-gray-600">
                 <label className="grid gap-1">
-                  <span>글자 색상</span>
+                  <span>{t("editor.textColorLabel")}</span>
                   <input
                     type="color"
                     value={text.color}
@@ -298,7 +301,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span>폰트 크기 ({text.fontSize.toFixed(0)} px)</span>
+                  <span>{t("editor.fontSizeLabel")} ({text.fontSize.toFixed(0)}{t("editor.px")})</span>
                   <input
                     type="range"
                     min={12}
@@ -313,7 +316,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                 </label>
               </div>
               <label className="mt-2 grid gap-1 text-xs text-gray-600">
-                <span>정렬</span>
+                <span>{t("editor.alignment")}</span>
                 <select
                   value={text.align}
                   onChange={(event) =>
@@ -323,9 +326,9 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                   }
                   className="rounded-lg border border-gray-200 px-2 py-1 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900/20"
                 >
-                  <option value="left">왼쪽</option>
-                  <option value="center">가운데</option>
-                  <option value="right">오른쪽</option>
+                  <option value="left">{t("editor.alignLeft")}</option>
+                  <option value="center">{t("editor.alignCenter")}</option>
+                  <option value="right">{t("editor.alignRight")}</option>
                 </select>
               </label>
             </div>
@@ -339,12 +342,12 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     <div className="space-y-4 text-sm">
       <div>
         <h2 className="text-base font-semibold text-slate-900">
-          이미지 & 스티커
+          {t("editor.imagesStickers")}
         </h2>
         <div className="mt-3 flex flex-col gap-3">
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm font-medium text-gray-600 transition hover:border-slate-900 hover:text-slate-900">
             <ImageIcon className="h-4 w-4" />
-            사진 추가
+            {t("editor.addPhoto")}
             <input
               type="file"
               accept="image/*"
@@ -354,7 +357,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           </label>
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 px-3 py-3 text-sm font-medium text-gray-500 transition hover:border-slate-900 hover:text-slate-900">
             <Sparkles className="h-4 w-4" />
-            스티커 업로드
+            {t("editor.uploadSticker")}
             <input
               type="file"
               accept="image/*"
@@ -366,7 +369,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         <div className="mt-4 space-y-3">
           {images.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-gray-500">
-              아직 추가된 이미지가 없습니다. 위 버튼을 눌러 업로드해보세요.
+              {t("editor.noImagesYet")}
             </p>
           ) : (
             images.map((image) => (
@@ -376,7 +379,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-700">
-                    이미지 {image.id.slice(0, 4)}
+                    {t("editor.imageId")} {image.id.slice(0, 4)}
                   </span>
                   <button
                     type="button"
@@ -388,7 +391,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                 </div>
                 <div className="mt-3 grid gap-2">
                   <label className="grid gap-1">
-                    <span className="text-xs text-gray-500">연결된 컷</span>
+                    <span className="text-xs text-gray-500">{t("editor.connectedCut")}</span>
                     <select
                       className="rounded-xl border border-gray-200 px-2 py-1 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900/20"
                       value={image.slotId ?? "none"}
@@ -401,7 +404,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                         )
                       }
                     >
-                      <option value="none">연결 안함</option>
+                      <option value="none">{t("editor.noConnection")}</option>
                       {slotOptions.map((option) => (
                         <option key={option.id} value={option.id}>
                           {option.label}
@@ -418,12 +421,12 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                     {backgroundProcessingId === image.id ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        배경 제거 중...
+                        {t("editor.removingBackground")}
                       </>
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4" />
-                        배경 제거
+                        {t("editor.removeBackground")}
                       </>
                     )}
                   </button>
@@ -435,7 +438,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         {stickers.length > 0 ? (
           <div className="mt-6 space-y-2 rounded-2xl bg-slate-50 p-3">
             <h3 className="text-sm font-semibold text-gray-700">
-              스티커 레이어
+              {t("editor.stickerLayer")}
             </h3>
             {stickers.map((sticker) => (
               <div
@@ -465,32 +468,35 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     </div>
   );
 
-  const steps: EditorStep[] = [
-    {
-      id: "info",
-      title: "기본 정보",
-      description: "프로젝트 이름과 설명",
-      render: renderTemplateInfoStep,
-    },
-    {
-      id: "layout",
-      title: "프레임 구성",
-      description: "컷 수와 색상, 두께 설정",
-      render: renderLayoutStep,
-    },
-    {
-      id: "text",
-      title: "텍스트",
-      description: "하단 문구와 텍스트 상자",
-      render: renderTextStep,
-    },
-    {
-      id: "media",
-      title: "이미지 & 스티커",
-      description: "사진 업로드와 배경제거",
-      render: renderMediaStep,
-    },
-  ];
+  const steps: EditorStep[] = useMemo(
+    () => [
+      {
+        id: "info",
+        title: t("editor.basicInfo"),
+        description: t("editor.basicInfoDesc"),
+        render: renderTemplateInfoStep,
+      },
+      {
+        id: "layout",
+        title: t("editor.frameComposition"),
+        description: t("editor.frameCompositionDesc"),
+        render: renderLayoutStep,
+      },
+      {
+        id: "text",
+        title: t("editor.textLabel"),
+        description: t("editor.textDesc"),
+        render: renderTextStep,
+      },
+      {
+        id: "media",
+        title: t("editor.imagesStickerLabel"),
+        description: t("editor.imagesStickerDesc"),
+        render: renderMediaStep,
+      },
+    ],
+    [t, renderTemplateInfoStep, renderLayoutStep, renderTextStep, renderMediaStep],
+  );
 
   const handleUploadImage = async (
     file: File,
@@ -547,7 +553,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       }
     } catch (error) {
       console.error(error);
-      setErrorMessage("이미지를 불러오는 중 오류가 발생했습니다.");
+      setErrorMessage(t("error.imageLoadError"));
     }
   };
 
@@ -599,7 +605,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const handleGenerateOverlay = async () => {
     const stage = stageRef.current;
     if (!stage) {
-      setErrorMessage("캔버스를 찾을 수 없습니다.");
+      setErrorMessage(t("error.canvasNotFound"));
       return;
     }
     const dataUrl = exportStageWithTransparentSlots(stage);
@@ -641,7 +647,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       setErrorMessage(null);
     } catch (error) {
       console.error(error);
-      setErrorMessage("템플릿 저장에 실패했습니다. Supabase 설정을 확인해주세요.");
+      setErrorMessage(t("error.templateSaveFailed"));
       setSaveState("error");
     }
   };
@@ -652,15 +658,13 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       const success = await removeImageBackground(image.id);
 
       if (!success) {
-        throw new Error("배경 제거에 실패했습니다.");
+        throw new Error(t("error.backgroundRemovalFailed"));
       }
 
       setErrorMessage(null);
     } catch (error) {
       console.error(error);
-      setErrorMessage(
-        "배경 제거에 실패했습니다. 배경 제거 서비스가 실행되고 있는지 확인해주세요.",
-      );
+      setErrorMessage(t("error.backgroundRemovalError"));
     } finally {
       setBackgroundProcessingId(null);
     }
@@ -721,7 +725,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
               disabled={currentStepIndex === 0}
               className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition enabled:hover:border-slate-900 enabled:hover:text-slate-900 disabled:opacity-50"
             >
-              이전
+              {t("editor.previous")}
             </button>
             <button
               type="button"
@@ -733,7 +737,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
               disabled={currentStepIndex === steps.length - 1}
               className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              {currentStepIndex === steps.length - 1 ? "완료됨" : "다음"}
+              {currentStepIndex === steps.length - 1 ? t("editor.completed") : t("editor.next")}
             </button>
           </div>
         </div>
@@ -745,7 +749,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             className="flex items-center justify-center gap-2 rounded-xl border border-slate-900 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-900 hover:text-white"
           >
             <Download className="h-4 w-4" />
-            미리보기 이미지 갱신
+            {t("editor.updatePreview")}
           </button>
           <button
             type="button"
@@ -755,23 +759,23 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             {saveState === "saving" ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                저장 중...
+                {t("editor.saving")}
               </>
             ) : (
               <>
                 <Share2 className="h-4 w-4" />
-                저장 & 공유 링크 만들기
+                {t("editor.saveAndShare")}
               </>
             )}
           </button>
           {saveState === "saved" ? (
             <p className="text-center text-sm text-emerald-600">
-              저장이 완료되었습니다. 공유 링크를 확인하세요!
+              {t("editor.saveCompleted")}
             </p>
           ) : null}
           <div className="rounded-2xl bg-slate-50 p-3 text-xs text-gray-600">
             <p>
-              공유 링크:{" "}
+              {t("editor.shareLink")}{" "}
               <Link
                 href={relativeShareUrl}
                 className="font-medium text-slate-900 underline"
@@ -779,7 +783,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                 {shareUrl}
               </Link>
             </p>
-            <p className="mt-1">Supabase 미설정 시 .dist/templates 에 저장됩니다.</p>
+            <p className="mt-1">{t("editor.supabaseNote")}</p>
           </div>
         </div>
       </div>

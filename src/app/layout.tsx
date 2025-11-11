@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteHeader } from "@/components/site-header";
+import { LanguageProvider } from "@/contexts/language-context";
 
 import "./globals.css";
 
@@ -36,14 +37,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-zinc-100 text-zinc-950 antialiased`}
       >
-        <div className="flex min-h-screen flex-col">
-          <SiteHeader />
-          <main className="flex flex-1 justify-center">
-            <div className="w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-              {children}
-            </div>
-          </main>
-        </div>
+        <LanguageProvider>
+          <div className="flex min-h-screen flex-col">
+            <SiteHeader />
+            <main className="flex flex-1 justify-center">
+              <div className="w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+                {children}
+              </div>
+            </main>
+          </div>
+        </LanguageProvider>
       </body>
     </html>
   );
