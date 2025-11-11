@@ -204,7 +204,7 @@ export const useEditorStore = create<EditorState & EditorActions>(
               ? {
                   ...img,
                   dataUrl: result.imageBase64,
-                  slotId: undefined, // Convert to floating image for easier manipulation
+                  slotId: null, // Convert to floating image for easier manipulation
                   backgroundRemoved: true,
                 }
               : img,

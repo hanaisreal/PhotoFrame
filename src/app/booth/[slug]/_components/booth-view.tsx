@@ -29,7 +29,7 @@ interface BoothViewProps {
 
 interface BoothAppShellProps {
   children: ReactNode;
-  canvasRef: RefObject<HTMLCanvasElement>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
   canvasWidth: number;
   canvasHeight: number;
 }
@@ -366,7 +366,8 @@ export const BoothView = ({ template }: BoothViewProps) => {
           console.error('🎥 srcObject assignment failed:', error);
           // Fallback for older browsers
           try {
-            video.src = window.URL.createObjectURL(stream as any);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            video.src = (window.URL as any).createObjectURL(stream);
             console.log('🎥 Fallback URL.createObjectURL used');
           } catch (fallbackError) {
             console.error('🎥 Fallback also failed:', fallbackError);
@@ -804,7 +805,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
 
   const runCountdown = async () => {
     const video = videoRef.current;
-    const stream = streamRef.current;
 
     await keepPreviewAlive("countdown-start", { metadataTimeout: 800 });
 
@@ -1205,15 +1205,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
     template.layout.frame.thickness,
   ]);
 
-  const isAllSlotsAssigned = useMemo(
-    () =>
-      slots.length > 0 &&
-      slots.every((slot) => {
-        const shotIndex = slotAssignments[slot.id];
-        return typeof shotIndex === "number" && Boolean(capturedShots[shotIndex]);
-      }),
-    [capturedShots, slotAssignments, slots],
-  );
 
   const canGenerateFinalImage = useMemo(
     () =>

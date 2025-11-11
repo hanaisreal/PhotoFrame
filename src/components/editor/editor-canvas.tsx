@@ -10,7 +10,6 @@ import {
   Text,
   Transformer,
   Line,
-  Image as KonvaImage,
 } from "react-konva";
 import useImage from "use-image";
 
@@ -38,17 +37,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const updateSticker = useEditorStore((state) => state.updateSticker);
   const updateTextElement = useEditorStore((state) => state.updateText);
 
-  const [overlayImage] = useImage(overlayDataUrl || "");
 
-  // The overlay should fill the canvas like in booth view
-  const overlayDimensions = useMemo(() => {
-    if (!overlayImage) return null;
-
-    return {
-      width: layout.canvas.width,
-      height: layout.canvas.height,
-    };
-  }, [overlayImage, layout.canvas.width, layout.canvas.height]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
