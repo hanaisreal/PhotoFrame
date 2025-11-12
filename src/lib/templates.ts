@@ -76,7 +76,7 @@ export const saveTemplate = async (
           {
             slug: payload.slug,
             data: payload,
-            overlay_data_url: payload.overlayDataUrl,
+            overlay_data_url: payload.overlayDataUrl || '',
           },
           { onConflict: "slug" },
         )
@@ -84,6 +84,7 @@ export const saveTemplate = async (
         .single();
 
       if (error) {
+        console.error("Supabase save error:", error);
         throw mapSupabaseError(error);
       }
 
