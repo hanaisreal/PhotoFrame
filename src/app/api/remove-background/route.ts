@@ -11,6 +11,7 @@ const extractBase64 = (dataUrl: string) => {
 
 export const POST = async (request: NextRequest) => {
   try {
+    console.log("Background removal service URL:", BACKGROUND_REMOVAL_SERVICE_URL);
     const { imageBase64 } = (await request.json()) as {
       imageBase64?: string;
     };
@@ -41,6 +42,11 @@ export const POST = async (request: NextRequest) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error("Background removal service error:", {
+        status: response.status,
+        url: `${BACKGROUND_REMOVAL_SERVICE_URL}/remove-background`,
+        error: errorText
+      });
       return NextResponse.json(
         {
           error: `Background removal service error: ${errorText}`,
