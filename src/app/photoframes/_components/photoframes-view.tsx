@@ -97,12 +97,7 @@ const TemplateCard = ({ template }: TemplateCardProps) => {
     });
   };
 
-  // Generate a preview thumbnail using canvas or use overlay if available
-  const thumbnailSrc = template.overlayDataUrl || "/api/placeholder/300/400";
-
   const slotCount = template.layout?.slots?.length || 0;
-  const imageCount = template.images?.length || 0;
-  const stickerCount = template.stickers?.length || 0;
 
   return (
     <Link
@@ -110,17 +105,9 @@ const TemplateCard = ({ template }: TemplateCardProps) => {
       className="group relative overflow-hidden rounded-lg transition hover:scale-105"
     >
       <div className="aspect-[4/5] overflow-hidden">
-        {thumbnailSrc && thumbnailSrc !== "/api/placeholder/300/400" ? (
-          <img
-            src={thumbnailSrc}
-            alt={template.name}
-            className="h-full w-full object-cover transition duration-300"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-            <ImageIcon className="h-8 w-8 text-gray-400" />
-          </div>
-        )}
+        <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+          <ImageIcon className="h-8 w-8 text-gray-400" />
+        </div>
 
         {/* Overlay with Camera Icon and Info */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 group-hover:from-black/80 transition duration-300 flex flex-col justify-between">
