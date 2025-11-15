@@ -1,5 +1,18 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+// Server-side only imports - conditionally loaded
+let nodeFs: typeof import("node:fs/promises") | null = null;
+let nodePath: typeof import("node:path") | null = null;
+
+// Dynamically import Node.js modules only on server-side
+const getNodeModules = async () => {
+  if (typeof window !== 'undefined') return null;
+  if (!nodeFs || !nodePath) {
+    [nodeFs, nodePath] = await Promise.all([
+      import("node:fs/promises"),
+      import("node:path")
+    ]);
+  }
+  return { fs: nodeFs, path: nodePath };
+};
 
 import type { PostgrestError } from "@supabase/supabase-js";
 
@@ -13,18 +26,30 @@ import {
 } from "@/lib/supabase/server";
 
 const TABLE_NAME = "templates";
-const LOCAL_TEMPLATE_DIR = path.join(process.cwd(), ".dist", "templates");
+
+const getLocalTemplateDir = async () => {
+  const nodeModules = await getNodeModules();
+  if (!nodeModules) return null;
+  return nodeModules.path.join(process.cwd(), ".dist", "templates");
+};
 
 const ensureLocalDirectory = async () => {
-  await mkdir(LOCAL_TEMPLATE_DIR, { recursive: true });
+  const nodeModules = await getNodeModules();
+  const localDir = await getLocalTemplateDir();
+  if (!nodeModules || !localDir) return;
+  await nodeModules.fs.mkdir(localDir, { recursive: true });
 };
 
 const readTemplateFromDisk = async (
   slug: string,
 ): Promise<FrameTemplate | null> => {
   try {
-    const filePath = path.join(LOCAL_TEMPLATE_DIR, `${slug}.json`);
-    const file = await readFile(filePath, "utf-8");
+    const nodeModules = await getNodeModules();
+    const localDir = await getLocalTemplateDir();
+    if (!nodeModules || !localDir) return null;
+
+    const filePath = nodeModules.path.join(localDir, `${slug}.json`);
+    const file = await nodeModules.fs.readFile(filePath, "utf-8");
     const parsed = JSON.parse(file) as TemplatePersistencePayload;
     return normalizeTemplate({
       slug,
@@ -97,9 +122,15 @@ export const saveTemplate = async (
     }
   }
 
+  const nodeModules = await getNodeModules();
+  const localDir = await getLocalTemplateDir();
+  if (!nodeModules || !localDir) {
+    throw new Error("File system operations not available in client environment");
+  }
+
   await ensureLocalDirectory();
-  const filePath = path.join(LOCAL_TEMPLATE_DIR, `${payload.slug}.json`);
-  await writeFile(filePath, JSON.stringify(payload, null, 2), "utf-8");
+  const filePath = nodeModules.path.join(localDir, `${payload.slug}.json`);
+  await nodeModules.fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf-8");
   return { slug: payload.slug };
 };
 
@@ -176,32 +207,40 @@ export const getAllTemplates = async (): Promise<FrameTemplate[]> => {
     }
   }
 
-  // Fallback to local file storage
-  try {
-    await ensureLocalDirectory();
-    const { readdir } = await import("node:fs/promises");
-    const files = await readdir(LOCAL_TEMPLATE_DIR);
-    const jsonFiles = files.filter((file) => file.endsWith(".json"));
+  // Fallback to local file storage (server-side only)
+  if (typeof window === 'undefined') {
+    try {
+      const nodeModules = await getNodeModules();
+      const localDir = await getLocalTemplateDir();
+      if (!nodeModules || !localDir) return [];
 
-    const templates = await Promise.allSettled(
-      jsonFiles.map(async (file) => {
-        const slug = file.replace(".json", "");
-        return await readTemplateFromDisk(slug);
+      await ensureLocalDirectory();
+      const files = await nodeModules.fs.readdir(localDir);
+      const jsonFiles = files.filter((file) => file.endsWith(".json"));
+
+      const templates = await Promise.allSettled(
+        jsonFiles.map(async (file) => {
+          const slug = file.replace(".json", "");
+          return await readTemplateFromDisk(slug);
       }),
     );
 
-    return templates
-      .filter((result): result is PromiseFulfilledResult<FrameTemplate> =>
-        result.status === "fulfilled" && result.value !== null
-      )
-      .map((result) => result.value)
-      .sort((a, b) =>
-        new Date(b.updatedAt || b.createdAt || 0).getTime() -
-        new Date(a.updatedAt || a.createdAt || 0).getTime()
-      );
-  } catch {
-    return [];
+      return templates
+        .filter((result): result is PromiseFulfilledResult<FrameTemplate> =>
+          result.status === "fulfilled" && result.value !== null
+        )
+        .map((result) => result.value)
+        .sort((a, b) =>
+          new Date(b.updatedAt || b.createdAt || 0).getTime() -
+          new Date(a.updatedAt || a.createdAt || 0).getTime()
+        );
+    } catch {
+      return [];
+    }
   }
+
+  // Client-side fallback - return empty array since file system isn't available
+  return [];
 };
 
 export const supabaseAvailable = (): boolean => isSupabaseConfigured();
