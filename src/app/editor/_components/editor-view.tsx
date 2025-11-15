@@ -848,23 +848,17 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       </div>
 
       <div className="min-w-0 flex flex-1 flex-col gap-4">
-        <div className="flex min-h-[calc(100vh-120px)] items-center justify-center rounded-3xl bg-white p-4 shadow-sm overflow-hidden relative">
+        <div className="flex min-h-[calc(100vh-120px)] items-center justify-center rounded-3xl bg-white p-4 shadow-sm overflow-hidden">
           <EditorCanvas stageRef={stageRef} />
-
-          {/* Loading overlay during save */}
-          {saveState === "saving" && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50">
-              <div className="flex flex-col items-center gap-4 p-8 rounded-3xl bg-white shadow-2xl border border-gray-100">
-                <Loader2 className="h-12 w-12 animate-spin text-slate-900" />
-                <div className="text-center">
-                  <p className="text-lg font-semibold text-slate-900">{t("editor.saving")}</p>
-                  <p className="text-sm text-slate-500 mt-1">{t("editor.savingDesc")}</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Full-screen loading spinner */}
+      {saveState === "saving" && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-800/80 z-[100]">
+          <Loader2 className="h-16 w-16 animate-spin text-white" />
+        </div>
+      )}
 
       {/* Celebration popup with falling emojis */}
       {showCelebration && (
@@ -929,11 +923,11 @@ const FallingEmojis = () => {
   }, []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-[300] overflow-hidden">
       {emojis.map((emoji) => (
         <div
           key={emoji.id}
-          className="absolute text-2xl select-none"
+          className="absolute text-3xl select-none"
           style={{
             left: `${emoji.left}%`,
             top: '-50px',
@@ -969,38 +963,46 @@ const CelebrationOverlay = ({ overlayImage, onClose }: CelebrationOverlayProps) 
   const { t } = useLanguage();
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white">
       <FallingEmojis />
 
-      <div className="relative max-w-2xl max-h-[80vh] mx-4 bg-white rounded-3xl shadow-2xl overflow-hidden transform animate-bounce">
-        <div className="p-8 text-center">
-          <div className="mb-6">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">
-              🎉 {t("editor.celebrationTitle")}
-            </h2>
-            <p className="text-slate-600">
-              {t("editor.celebrationMessage")}
-            </p>
-          </div>
+      <div className="relative flex flex-col items-center justify-center min-h-screen w-full p-8">
+        {/* Celebration Content */}
+        <div className="text-center mb-8 z-10">
+          <h2 className="text-4xl font-bold text-slate-900 mb-4">
+            🎉 {t("editor.celebrationTitle")}
+          </h2>
+          <p className="text-xl text-slate-600 mb-8">
+            {t("editor.celebrationMessage")}
+          </p>
+        </div>
 
-          {overlayImage && (
-            <div className="mb-6 flex justify-center">
+        {/* Photoframe - Centered on screen */}
+        {overlayImage && (
+          <div className="mb-8 flex justify-center z-10">
+            <div className="relative transform animate-bounce">
               <img
                 src={overlayImage}
                 alt="Your photoframe"
-                className="max-w-full max-h-64 rounded-2xl shadow-lg border-4 border-slate-100"
+                className="max-w-md max-h-[50vh] rounded-3xl shadow-2xl border-8 border-white"
+                style={{
+                  filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.3))'
+                }}
               />
+              {/* Sparkle effect around the image */}
+              <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400/20 via-pink-400/20 to-purple-400/20 rounded-3xl blur-lg animate-pulse"></div>
             </div>
-          )}
-
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={onClose}
-              className="px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-colors"
-            >
-              {t("editor.celebrationContinue")}
-            </button>
           </div>
+        )}
+
+        {/* Close Button */}
+        <div className="z-10">
+          <button
+            onClick={onClose}
+            className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-lg font-semibold hover:bg-slate-800 transition-all transform hover:scale-105 shadow-xl"
+          >
+            {t("editor.celebrationContinue")}
+          </button>
         </div>
       </div>
     </div>
