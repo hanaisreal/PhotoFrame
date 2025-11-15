@@ -39,6 +39,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const [backgroundProcessingId, setBackgroundProcessingId] = useState<
     string | null
   >(null);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const layout = useEditorStore((state) => state.layout);
@@ -345,12 +346,27 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           {t("editor.imagesStickers")}
         </h2>
         <div className="mt-3 flex flex-col gap-3">
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm font-medium text-gray-600 transition hover:border-slate-900 hover:text-slate-900">
-            <ImageIcon className="h-4 w-4" />
-            {t("editor.addPhoto")}
+          <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed px-3 py-3 text-sm font-medium transition ${
+            isUploadingFiles
+              ? "border-slate-400 text-slate-400 cursor-not-allowed"
+              : "border-gray-300 text-gray-600 hover:border-slate-900 hover:text-slate-900"
+          }`}>
+            {isUploadingFiles ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Uploading photos...
+              </>
+            ) : (
+              <>
+                <ImageIcon className="h-4 w-4" />
+                {t("editor.addPhoto")} (Multiple)
+              </>
+            )}
             <input
               type="file"
               accept="image/*"
+              multiple
+              disabled={isUploadingFiles}
               className="hidden"
               onChange={(event) => handleFileChange(event)}
             />
@@ -361,6 +377,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             <input
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(event) => handleFileChange(event, { asSticker: true })}
             />
@@ -561,12 +578,29 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     event: React.ChangeEvent<HTMLInputElement>,
     { asSticker = false }: { asSticker?: boolean } = {},
   ) => {
-    const file = event.target.files?.[0];
-    if (!file) {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
       return;
     }
-    await handleUploadImage(file, { assignToSlot: null, asSticker });
-    event.target.value = "";
+
+    setIsUploadingFiles(true);
+    setErrorMessage(null);
+
+    try {
+      // Process all selected files
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file) {
+          await handleUploadImage(file, { assignToSlot: null, asSticker });
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      setErrorMessage(t("error.multipleFileUploadError"));
+    } finally {
+      setIsUploadingFiles(false);
+      event.target.value = "";
+    }
   };
 
   const handleAssignSlot = (image: ImageElement, slotId: string | null) => {
