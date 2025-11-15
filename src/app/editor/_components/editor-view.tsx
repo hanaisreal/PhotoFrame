@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import Link from "next/link";
 import type Konva from "konva";
-import { Download, ImageIcon, Loader2, Share2, Sparkles, Trash } from "lucide-react";
+import { Download, ImageIcon, Loader2, Share2, Sparkles, Trash, Camera } from "lucide-react";
 
 import { useLanguage } from "@/contexts/language-context";
 
@@ -667,6 +667,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
 
     try {
       setSaveState("saving");
+      console.log('🐛 [Save Debug] Save state set to "saving"');
 
       // Debug: Log the images array before saving
       console.log('🐛 [Save Debug] Images being saved:', images.length, images);
@@ -855,8 +856,11 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
 
       {/* Full-screen loading spinner */}
       {saveState === "saving" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800/80 z-[100]">
-          <Loader2 className="h-16 w-16 animate-spin text-white" />
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-900/80 z-[100] backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-16 w-16 animate-spin text-white" />
+            <p className="text-white text-lg font-medium">Saving your photoframe...</p>
+          </div>
         </div>
       )}
 
@@ -864,6 +868,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       {showCelebration && (
         <CelebrationOverlay
           overlayImage={celebrationOverlay}
+          templateSlug={currentSlug}
           onClose={() => {
             setShowCelebration(false);
             setCelebrationOverlay(null);
@@ -956,11 +961,12 @@ const FallingEmojis = () => {
 // Celebration Overlay Component
 interface CelebrationOverlayProps {
   overlayImage: string | null;
+  templateSlug: string;
   onClose: () => void;
 }
 
-const CelebrationOverlay = ({ overlayImage, onClose }: CelebrationOverlayProps) => {
-  const { t } = useLanguage();
+const CelebrationOverlay = ({ overlayImage, templateSlug, onClose }: CelebrationOverlayProps) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white">
@@ -970,17 +976,21 @@ const CelebrationOverlay = ({ overlayImage, onClose }: CelebrationOverlayProps) 
         {/* Celebration Content */}
         <div className="text-center mb-8 z-10">
           <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            🎉 {t("editor.celebrationTitle")}
+            Congratulations!
           </h2>
           <p className="text-xl text-slate-600 mb-8">
-            {t("editor.celebrationMessage")}
+            Your photoframe has been created successfully!
           </p>
         </div>
 
-        {/* Photoframe - Centered on screen */}
+        {/* Photoframe - Centered on screen with smooth transition */}
         {overlayImage && (
-          <div className="mb-8 flex justify-center z-10">
-            <div className="relative transform animate-bounce">
+          <div
+            className={`mb-8 flex justify-center z-10 transition-all duration-1000 ${
+              imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+            }`}
+          >
+            <div className="relative">
               <img
                 src={overlayImage}
                 alt="Your photoframe"
@@ -988,6 +998,7 @@ const CelebrationOverlay = ({ overlayImage, onClose }: CelebrationOverlayProps) 
                 style={{
                   filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.3))'
                 }}
+                onLoad={() => setImageLoaded(true)}
               />
               {/* Sparkle effect around the image */}
               <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400/20 via-pink-400/20 to-purple-400/20 rounded-3xl blur-lg animate-pulse"></div>
@@ -995,14 +1006,21 @@ const CelebrationOverlay = ({ overlayImage, onClose }: CelebrationOverlayProps) 
           </div>
         )}
 
-        {/* Close Button */}
-        <div className="z-10">
+        {/* Action Buttons */}
+        <div className="z-10 flex gap-4">
           <button
             onClick={onClose}
-            className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-lg font-semibold hover:bg-slate-800 transition-all transform hover:scale-105 shadow-xl"
+            className="px-6 py-3 bg-gray-200 text-slate-900 rounded-xl text-lg font-semibold hover:bg-gray-300 transition-all transform hover:scale-105"
           >
-            {t("editor.celebrationContinue")}
+            Continue Editing
           </button>
+          <Link
+            href={`/booth/${templateSlug}`}
+            className="px-8 py-3 bg-slate-900 text-white rounded-xl text-lg font-semibold hover:bg-slate-800 transition-all transform hover:scale-105 shadow-xl inline-flex items-center gap-2"
+          >
+            <Camera className="h-5 w-5" />
+            Try PhotoFrame
+          </Link>
         </div>
       </div>
     </div>
