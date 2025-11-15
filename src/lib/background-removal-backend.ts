@@ -124,7 +124,7 @@ const removeBackgroundFromFile = async (baseUrl: string, file: Blob | File): Pro
 export const isBackendServiceAvailable = async (): Promise<{
   available: boolean;
   url?: string;
-  models?: any[];
+  models?: Array<{ name: string; description: string; size: string }>;
 }> => {
   const serviceUrls = [
     'http://localhost:5001',  // Local development
