@@ -298,19 +298,19 @@ function calculateEdgeStrength(data: Uint8ClampedArray, pixelIndex: number, widt
 // Utility to preload the background removal models
 export const preloadBackgroundRemovalModel = async (): Promise<void> => {
   try {
-    console.log('Testing modern-rembg availability...');
+    console.log('Testing backend rembg service availability...');
 
-    // Test if modern-rembg can be loaded
+    // Use the simplified test function
     const { testRembgLoad } = await import('./test-rembg');
-    const isLoaded = await testRembgLoad();
+    const isAvailable = await testRembgLoad();
 
-    if (isLoaded) {
-      console.log('✅ Modern-rembg is ready');
+    if (isAvailable) {
+      console.log('✅ Backend rembg service is ready');
     } else {
-      console.warn('⚠️ Modern-rembg failed to load, will use fallback methods');
+      console.warn('⚠️ Backend rembg service not available, will use API fallback methods');
     }
   } catch (error) {
-    console.warn('Modern-rembg preload check failed:', error);
+    console.warn('Backend service check failed:', error);
   }
 };
 
