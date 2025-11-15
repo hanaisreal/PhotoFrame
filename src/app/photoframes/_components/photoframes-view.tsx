@@ -2,29 +2,51 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Camera, Calendar, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Camera, Calendar, ImageIcon, ChevronDown, Loader2 } from "lucide-react";
 
 import { useLanguage } from "@/contexts/language-context";
 import type { FrameTemplate } from "@/types/frame";
 
 interface PhotoframesViewProps {
-  templates: FrameTemplate[];
-  currentPage: number;
-  totalPages: number;
+  initialTemplates: FrameTemplate[];
   totalCount: number;
 }
 
-export const PhotoframesView = ({ templates, currentPage, totalPages, totalCount }: PhotoframesViewProps) => {
+export const PhotoframesView = ({ initialTemplates, totalCount }: PhotoframesViewProps) => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
-  const router = useRouter();
+  const [templates, setTemplates] = useState(initialTemplates);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(totalCount > initialTemplates.length);
 
   const filteredTemplates = templates.filter(
     (template) =>
       template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       template.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const loadMoreTemplates = async () => {
+    if (loading || !hasMore) return;
+
+    setLoading(true);
+    try {
+      const nextPage = Math.floor(templates.length / 9) + 1;
+      const response = await fetch(`/api/templates?page=${nextPage}&limit=9`);
+      const data = await response.json();
+
+      if (data.templates && data.templates.length > 0) {
+        setTemplates(prev => [...prev, ...data.templates]);
+        setHasMore(data.templates.length === 9 && templates.length + data.templates.length < totalCount);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Failed to load more templates:', error);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -71,70 +93,42 @@ export const PhotoframesView = ({ templates, currentPage, totalPages, totalCount
           )}
         </div>
       ) : (
-        <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
+        <div className="grid gap-4 grid-cols-3">
           {filteredTemplates.map((template) => (
             <TemplateCard key={template.slug} template={template} />
           ))}
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
+      {/* Load More Button */}
+      {!searchTerm && hasMore && (
+        <div className="mt-8 flex justify-center">
           <button
-            onClick={() => router.push(`/photoframes?page=${currentPage - 1}`)}
-            disabled={currentPage <= 1}
-            className="flex items-center gap-1 px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={loadMoreTemplates}
+            disabled={loading}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </button>
-
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-              const isCurrentPage = pageNum === currentPage;
-              const shouldShow =
-                pageNum === 1 ||
-                pageNum === totalPages ||
-                Math.abs(pageNum - currentPage) <= 1;
-
-              if (!shouldShow) {
-                if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                  return <span key={pageNum} className="px-2 text-gray-400">...</span>;
-                }
-                return null;
-              }
-
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => router.push(`/photoframes?page=${pageNum}`)}
-                  className={`px-3 py-2 text-sm rounded-lg ${
-                    isCurrentPage
-                      ? "bg-slate-900 text-white"
-                      : "bg-white border border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => router.push(`/photoframes?page=${currentPage + 1}`)}
-            disabled={currentPage >= totalPages}
-            className="flex items-center gap-1 px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
+            {loading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-5 w-5" />
+                Load More Templates
+              </>
+            )}
           </button>
         </div>
       )}
 
       {/* Stats */}
       <div className="mt-6 text-center text-sm text-gray-500">
-        Showing {((currentPage - 1) * 12) + 1}-{Math.min(currentPage * 12, totalCount)} of {totalCount} templates
+        {searchTerm
+          ? `Found ${filteredTemplates.length} templates matching "${searchTerm}"`
+          : `Showing ${templates.length} of ${totalCount} templates`
+        }
       </div>
     </div>
   );
@@ -166,9 +160,9 @@ const TemplateCard = ({ template }: TemplateCardProps) => {
   return (
     <Link
       href={`/booth/${template.slug}`}
-      className="group relative overflow-hidden rounded-lg transition hover:scale-105"
+      className="group relative overflow-hidden rounded-lg transition hover:scale-105 shadow-sm hover:shadow-md"
     >
-      <div className="aspect-[4/5] overflow-hidden">
+      <div className="aspect-[4/5] overflow-hidden rounded-lg">
         {thumbnailSrc && thumbnailSrc !== "/api/placeholder/300/400" ? (
           <img
             src={thumbnailSrc}
@@ -191,11 +185,11 @@ const TemplateCard = ({ template }: TemplateCardProps) => {
           </div>
 
           {/* Template Info - Bottom */}
-          <div className="p-1 text-white">
-            <h3 className="text-xs font-medium line-clamp-1 drop-shadow-sm">
+          <div className="p-3 text-white">
+            <h3 className="text-sm font-medium line-clamp-1 drop-shadow-sm">
               {template.name}
             </h3>
-            <div className="text-xs opacity-80 mt-0.5">
+            <div className="text-xs opacity-80 mt-1">
               <span>{slotCount} {t("photoframes.slots")}</span>
             </div>
           </div>
