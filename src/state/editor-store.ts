@@ -180,30 +180,24 @@ export const useEditorStore = create<EditorState & EditorActions>(
       if (!image) return false;
 
       try {
-        const response = await fetch("/api/remove-background", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            imageBase64: image.dataUrl,
-          }),
-        });
+        // Import the client-side background removal utility
+        const { removeBackgroundClient, isBackgroundRemovalSupported } = await import('@/lib/background-removal');
 
-        if (!response.ok) {
-          const error = await response.json();
-          console.error("Background removal failed:", error);
+        // Check if background removal is supported in the current environment
+        if (!isBackgroundRemovalSupported()) {
+          console.error("Background removal is not supported in this browser environment");
           return false;
         }
 
-        const result = await response.json();
+        // Process the image client-side
+        const processedImageDataUrl = await removeBackgroundClient(image.dataUrl);
 
         set((state) => ({
           images: state.images.map((img) =>
             img.id === id
               ? {
                   ...img,
-                  dataUrl: result.imageBase64,
+                  dataUrl: processedImageDataUrl,
                   slotId: null, // Convert to floating image for easier manipulation
                   backgroundRemoved: true,
                 }

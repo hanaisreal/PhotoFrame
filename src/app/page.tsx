@@ -24,8 +24,14 @@ export default function Home() {
             {t("home.openEditor")}
           </Link>
           <Link
+            className="rounded-full bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-700"
+            href="/photoframes"
+          >
+            {t("home.browseFrames")}
+          </Link>
+          <Link
             className="rounded-full bg-white px-5 py-3 font-medium text-slate-900 shadow-sm ring-1 ring-slate-200 transition hover:ring-slate-300"
-            href="/booth/demo"
+            href="/photoframes"
           >
             {t("home.exploreBooth")}
           </Link>

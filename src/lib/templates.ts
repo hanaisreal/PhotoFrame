@@ -142,4 +142,66 @@ export const getTemplate = async (
   return readTemplateFromDisk(slug);
 };
 
+export const getAllTemplates = async (): Promise<FrameTemplate[]> => {
+  const supabase = getSupabaseServerClient();
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select("slug, data, overlay_data_url, created_at, updated_at")
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        console.warn(
+          "[templates] Failed to read all templates via Supabase. Falling back to local file storage.",
+          error,
+        );
+      } else if (data) {
+        return data.map((item) =>
+          normalizeTemplate({
+            slug: item.slug,
+            data: item.data as TemplatePersistencePayload,
+            overlay_data_url: item.overlay_data_url as string | undefined,
+            created_at: item.created_at as string | undefined,
+            updated_at: item.updated_at as string | undefined,
+          }),
+        );
+      }
+    } catch (error) {
+      console.warn(
+        "[templates] Failed to read all templates via Supabase. Falling back to local file storage.",
+        error,
+      );
+    }
+  }
+
+  // Fallback to local file storage
+  try {
+    await ensureLocalDirectory();
+    const { readdir } = await import("node:fs/promises");
+    const files = await readdir(LOCAL_TEMPLATE_DIR);
+    const jsonFiles = files.filter((file) => file.endsWith(".json"));
+
+    const templates = await Promise.allSettled(
+      jsonFiles.map(async (file) => {
+        const slug = file.replace(".json", "");
+        return await readTemplateFromDisk(slug);
+      }),
+    );
+
+    return templates
+      .filter((result): result is PromiseFulfilledResult<FrameTemplate> =>
+        result.status === "fulfilled" && result.value !== null
+      )
+      .map((result) => result.value)
+      .sort((a, b) =>
+        new Date(b.updatedAt || b.createdAt || 0).getTime() -
+        new Date(a.updatedAt || a.createdAt || 0).getTime()
+      );
+  } catch {
+    return [];
+  }
+};
+
 export const supabaseAvailable = (): boolean => isSupabaseConfigured();

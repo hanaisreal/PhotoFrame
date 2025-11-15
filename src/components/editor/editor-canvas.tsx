@@ -58,10 +58,6 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         "top-right",
         "bottom-left",
         "bottom-right",
-        "middle-left",
-        "middle-right",
-        "top-center",
-        "bottom-center",
       ];
     }
     return ["top-left", "top-right", "bottom-left", "bottom-right"];
@@ -88,8 +84,13 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     (node: Konva.Text, commit: boolean) => {
       const scaleX = node.scaleX();
       const scaleY = node.scaleY();
+
+      // Use the average of scaleX and scaleY for more consistent scaling
+      const avgScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
+
       const nextWidth = Math.max(80, node.width() * Math.abs(scaleX));
-      const nextFontSize = Math.max(8, node.fontSize() * Math.abs(scaleY));
+      const nextFontSize = Math.max(8, node.fontSize() * avgScale);
+
       node.width(nextWidth);
       node.fontSize(nextFontSize);
       node.scaleX(1);

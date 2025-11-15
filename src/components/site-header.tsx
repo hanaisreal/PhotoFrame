@@ -23,6 +23,12 @@ export const SiteHeader = () => {
             {t("header.frameEditor")}
           </Link>
           <Link
+            href="/photoframes"
+            className="text-gray-600 transition hover:text-gray-900"
+          >
+            {t("header.photoframes")}
+          </Link>
+          <Link
             href="/booth/demo"
             className="text-gray-600 transition hover:text-gray-900"
           >

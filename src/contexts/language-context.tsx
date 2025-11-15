@@ -7,7 +7,7 @@ type Language = "ko" | "en";
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -16,11 +16,13 @@ const translations = {
   ko: {
     // Header
     "header.frameEditor": "프레임 편집기",
+    "header.photoframes": "포토프레임 갤러리",
     "header.boothDemo": "촬영 부스 데모",
 
     // Home Page
     "home.title": "한국식 인생4컷 포토부스를 웹으로 옮겨온 MVP입니다. 생일 주인공이 프레임을 직접 커스터마이징하고, 공유 링크를 통해 친구들이 동일한 프레임으로 촬영할 수 있도록 설계했습니다.",
     "home.openEditor": "편집기 열기",
+    "home.browseFrames": "포토프레임 둘러보기",
     "home.exploreBooth": "촬영 부스 살펴보기",
     "home.frameEditor": "1. 프레임 편집기",
     "home.frameEditor.feature1": "· 4컷 세로 레이아웃 기반 커스터마이징",
@@ -145,6 +147,20 @@ const translations = {
     "error.noCameraDevice": "사용 가능한 카메라 장치를 찾지 못했습니다.",
     "error.cameraInUse": "다른 애플리케이션이 카메라를 사용 중입니다. 종료 후 다시 시도해주세요.",
 
+    // Photoframes Gallery
+    "photoframes.title": "포토프레임 갤러리",
+    "photoframes.subtitle": "원하는 포토프레임을 선택하고 바로 촬영을 시작하세요!",
+    "photoframes.searchPlaceholder": "프레임 검색...",
+    "photoframes.noResults": "검색 결과가 없습니다",
+    "photoframes.noTemplates": "아직 생성된 템플릿이 없습니다",
+    "photoframes.tryDifferentSearch": "다른 검색어를 시도해보세요",
+    "photoframes.createFirst": "첫 번째 템플릿을 만들어보세요!",
+    "photoframes.createTemplate": "템플릿 만들기",
+    "photoframes.totalTemplates": "총 {count}개의 템플릿",
+    "photoframes.slots": "슬롯",
+    "photoframes.images": "이미지",
+    "photoframes.stickers": "스티커",
+
     // Meta
     "meta.description": "한국식 인생4컷 포토부스 스타일의 프레임 편집 & 촬영 웹 MVP",
     "meta.ogDescription": "프레임 편집기로 커스터마이징하고, 공유 링크를 통해 친구들과 실시간 촬영까지!",
@@ -152,11 +168,13 @@ const translations = {
   en: {
     // Header
     "header.frameEditor": "Frame Editor",
+    "header.photoframes": "Photoframe Gallery",
     "header.boothDemo": "Photo Booth Demo",
 
     // Home Page
     "home.title": "A Korean-style 4-cut photo booth MVP brought to the web. Birthday celebrants can customize frames directly, and friends can shoot photos with the same frame through shared links.",
     "home.openEditor": "Open Editor",
+    "home.browseFrames": "Browse Photoframes",
     "home.exploreBooth": "Explore Photo Booth",
     "home.frameEditor": "1. Frame Editor",
     "home.frameEditor.feature1": "· Customization based on 4-cut vertical layout",
@@ -281,6 +299,20 @@ const translations = {
     "error.noCameraDevice": "No available camera device found.",
     "error.cameraInUse": "Camera is being used by another application. Please close it and try again.",
 
+    // Photoframes Gallery
+    "photoframes.title": "Photoframe Gallery",
+    "photoframes.subtitle": "Choose your favorite photoframe and start taking photos right away!",
+    "photoframes.searchPlaceholder": "Search frames...",
+    "photoframes.noResults": "No search results found",
+    "photoframes.noTemplates": "No templates created yet",
+    "photoframes.tryDifferentSearch": "Try a different search term",
+    "photoframes.createFirst": "Create your first template!",
+    "photoframes.createTemplate": "Create Template",
+    "photoframes.totalTemplates": "{count} templates total",
+    "photoframes.slots": "slots",
+    "photoframes.images": "images",
+    "photoframes.stickers": "stickers",
+
     // Meta
     "meta.description": "Korean-style 4-cut photo booth frame editing & shooting web MVP",
     "meta.ogDescription": "Customize with frame editor and take real-time photos with friends via shared links!",
@@ -302,8 +334,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("language", lang);
   };
 
-  const t = (key: string) => {
-    return translations[language][key as keyof typeof translations[typeof language]] || key;
+  const t = (key: string, params?: Record<string, string | number>) => {
+    let translation = translations[language][key as keyof typeof translations[typeof language]] || key;
+
+    if (params) {
+      Object.entries(params).forEach(([paramKey, value]) => {
+        translation = translation.replace(`{${paramKey}}`, String(value));
+      });
+    }
+
+    return translation;
   };
 
   return (
