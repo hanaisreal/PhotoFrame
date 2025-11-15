@@ -173,15 +173,76 @@ export const getTemplate = async (
   return readTemplateFromDisk(slug);
 };
 
+export const getTemplatesPaginated = async (page: number = 1, limit: number = 12): Promise<{ templates: FrameTemplate[], totalCount: number, totalPages: number }> => {
+  const supabase = getSupabaseServerClient();
+  const offset = (page - 1) * limit;
+
+  if (supabase) {
+    try {
+      // Get total count
+      const { count } = await supabase
+        .from(TABLE_NAME)
+        .select('*', { count: 'exact', head: true });
+
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      // Get paginated data
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select("slug, data, overlay_data_url, created_at, updated_at")
+        .order("updated_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        console.warn(
+          "[templates] Failed to read templates via Supabase. Falling back to local file storage.",
+          error,
+        );
+      } else if (data) {
+        const templates = data.map((item) =>
+          normalizeTemplate({
+            slug: item.slug,
+            data: item.data as TemplatePersistencePayload,
+            overlay_data_url: item.overlay_data_url as string | undefined,
+            created_at: item.created_at as string | undefined,
+            updated_at: item.updated_at as string | undefined,
+          }),
+        );
+        return { templates, totalCount, totalPages };
+      }
+    } catch (error) {
+      console.warn(
+        "[templates] Failed to read templates via Supabase. Falling back to local file storage.",
+        error,
+      );
+    }
+  }
+
+  // Fallback to local file storage with pagination
+  if (typeof window === 'undefined') {
+    try {
+      const allTemplates = await getAllTemplates();
+      const totalCount = allTemplates.length;
+      const totalPages = Math.ceil(totalCount / limit);
+      const templates = allTemplates.slice(offset, offset + limit);
+      return { templates, totalCount, totalPages };
+    } catch {
+      return { templates: [], totalCount: 0, totalPages: 0 };
+    }
+  }
+
+  return { templates: [], totalCount: 0, totalPages: 0 };
+};
+
 export const getAllTemplates = async (): Promise<FrameTemplate[]> => {
   const supabase = getSupabaseServerClient();
 
   if (supabase) {
     try {
-      // Exclude overlay_data_url to reduce payload size for listing pages
       const { data, error } = await supabase
         .from(TABLE_NAME)
-        .select("slug, data, created_at, updated_at")
+        .select("slug, data, overlay_data_url, created_at, updated_at")
         .order("updated_at", { ascending: false });
 
       if (error) {
@@ -194,7 +255,7 @@ export const getAllTemplates = async (): Promise<FrameTemplate[]> => {
           normalizeTemplate({
             slug: item.slug,
             data: item.data as TemplatePersistencePayload,
-            overlay_data_url: undefined, // Exclude overlay for listing
+            overlay_data_url: item.overlay_data_url as string | undefined,
             created_at: item.created_at as string | undefined,
             updated_at: item.updated_at as string | undefined,
           }),
@@ -222,18 +283,15 @@ export const getAllTemplates = async (): Promise<FrameTemplate[]> => {
       const templates = await Promise.allSettled(
         jsonFiles.map(async (file) => {
           const slug = file.replace(".json", "");
-          const template = await readTemplateFromDisk(slug);
-          // Remove overlay data for listing to reduce payload size
-          if (template) {
-            return { ...template, overlayDataUrl: undefined };
-          }
-          return null;
+          return await readTemplateFromDisk(slug);
       }),
     );
 
       return templates
-        .filter((result) => result.status === "fulfilled" && result.value !== null)
-        .map((result) => (result as PromiseFulfilledResult<FrameTemplate>).value)
+        .filter((result): result is PromiseFulfilledResult<FrameTemplate> =>
+          result.status === "fulfilled" && result.value !== null
+        )
+        .map((result) => result.value)
         .sort((a, b) =>
           new Date(b.updatedAt || b.createdAt || 0).getTime() -
           new Date(a.updatedAt || a.createdAt || 0).getTime()
