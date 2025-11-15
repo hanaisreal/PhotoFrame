@@ -542,7 +542,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         : (layout.canvas.height - height * baseScale) / 2;
 
       if (options.asSticker) {
-        addSticker({
+        const stickerId = addSticker({
           name: file.name ?? "sticker",
           dataUrl,
           x,
@@ -553,8 +553,9 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           scaleY: baseScale,
           rotation: 0,
         });
+        console.log('🐛 [Upload Debug] Added sticker:', stickerId, file.name);
       } else {
-        addImage({
+        const imageId = addImage({
           dataUrl,
           slotId: options.assignToSlot ?? null,
           x,
@@ -567,6 +568,8 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           clipToSlot: Boolean(options.assignToSlot),
           backgroundRemoved: false,
         });
+        console.log('🐛 [Upload Debug] Added image:', imageId, file.name);
+        console.log('🐛 [Upload Debug] Current images count in store:', images.length + 1);
       }
     } catch (error) {
       console.error(error);
@@ -662,6 +665,12 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
 
     try {
       setSaveState("saving");
+
+      // Debug: Log the images array before saving
+      console.log('🐛 [Save Debug] Images being saved:', images.length, images);
+      console.log('🐛 [Save Debug] Stickers being saved:', stickers.length, stickers);
+      console.log('🐛 [Save Debug] Texts being saved:', texts.length, texts);
+
       const payload = {
         slug: currentSlug,
         templateName,
@@ -674,6 +683,8 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+
+      console.log('🐛 [Save Debug] Full payload:', payload);
       const result = await persistTemplate(payload);
       setCurrentSlug(result.slug);
       setSaveState("saved");

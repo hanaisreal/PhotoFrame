@@ -12,6 +12,17 @@ interface BoothPageProps {
 const BoothPage = async ({ params }: BoothPageProps) => {
   const resolvedParams = await Promise.resolve(params);
   const template = await getTemplate(resolvedParams.slug);
+
+  // Debug: Log the loaded template
+  console.log('🐛 [Booth Debug] Loaded template:', {
+    slug: template?.slug,
+    name: template?.name,
+    imagesCount: template?.images?.length,
+    images: template?.images,
+    stickersCount: template?.stickers?.length,
+    textsCount: template?.texts?.length
+  });
+
   if (!template) {
     notFound();
   }
