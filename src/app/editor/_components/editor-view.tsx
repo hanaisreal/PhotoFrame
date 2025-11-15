@@ -41,6 +41,8 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   >(null);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationOverlay, setCelebrationOverlay] = useState<string | null>(null);
 
   const layout = useEditorStore((state) => state.layout);
   const images = useEditorStore((state) => state.images);
@@ -688,6 +690,18 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       const result = await persistTemplate(payload);
       setCurrentSlug(result.slug);
       setSaveState("saved");
+
+      // Generate celebration overlay and trigger celebration
+      if (nextOverlay) {
+        setCelebrationOverlay(nextOverlay);
+        setShowCelebration(true);
+        // Auto-hide celebration after 5 seconds
+        setTimeout(() => {
+          setShowCelebration(false);
+          setCelebrationOverlay(null);
+        }, 5000);
+      }
+
       setTimeout(() => setSaveState("idle"), 2000);
       setErrorMessage(null);
     } catch (error) {
@@ -834,8 +848,159 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       </div>
 
       <div className="min-w-0 flex flex-1 flex-col gap-4">
-        <div className="flex min-h-[calc(100vh-120px)] items-center justify-center rounded-3xl bg-white p-4 shadow-sm overflow-hidden">
+        <div className="flex min-h-[calc(100vh-120px)] items-center justify-center rounded-3xl bg-white p-4 shadow-sm overflow-hidden relative">
           <EditorCanvas stageRef={stageRef} />
+
+          {/* Loading overlay during save */}
+          {saveState === "saving" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50">
+              <div className="flex flex-col items-center gap-4 p-8 rounded-3xl bg-white shadow-2xl border border-gray-100">
+                <Loader2 className="h-12 w-12 animate-spin text-slate-900" />
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-slate-900">{t("editor.saving")}</p>
+                  <p className="text-sm text-slate-500 mt-1">{t("editor.savingDesc")}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Celebration popup with falling emojis */}
+      {showCelebration && (
+        <CelebrationOverlay
+          overlayImage={celebrationOverlay}
+          onClose={() => {
+            setShowCelebration(false);
+            setCelebrationOverlay(null);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// Falling Emojis Component
+const FallingEmojis = () => {
+  const [emojis, setEmojis] = useState<Array<{
+    id: string;
+    emoji: string;
+    left: number;
+    animationDelay: number;
+    animationDuration: number;
+  }>>([]);
+
+  const positiveEmojis = ['🎉', '✨', '🎊', '🥳', '🎈', '🌟', '💫', '🎆', '🎇', '🏆', '👏', '🙌', '💖', '😍', '😊', '🤩', '🔥', '🚀', '🌈', '🦄'];
+
+  useEffect(() => {
+    // Generate initial batch of emojis
+    const initialEmojis = Array.from({ length: 50 }, (_, i) => ({
+      id: `emoji-${i}`,
+      emoji: positiveEmojis[Math.floor(Math.random() * positiveEmojis.length)],
+      left: Math.random() * 100,
+      animationDelay: Math.random() * 3000,
+      animationDuration: 3000 + Math.random() * 2000,
+    }));
+
+    setEmojis(initialEmojis);
+
+    // Continue generating emojis for 5 seconds
+    const interval = setInterval(() => {
+      setEmojis(prev => [
+        ...prev,
+        {
+          id: `emoji-${Date.now()}-${Math.random()}`,
+          emoji: positiveEmojis[Math.floor(Math.random() * positiveEmojis.length)],
+          left: Math.random() * 100,
+          animationDelay: 0,
+          animationDuration: 3000 + Math.random() * 2000,
+        }
+      ]);
+    }, 200);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+    }, 4000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+      {emojis.map((emoji) => (
+        <div
+          key={emoji.id}
+          className="absolute text-2xl select-none"
+          style={{
+            left: `${emoji.left}%`,
+            top: '-50px',
+            animationName: 'fall',
+            animationDuration: `${emoji.animationDuration}ms`,
+            animationDelay: `${emoji.animationDelay}ms`,
+            animationTimingFunction: 'ease-in',
+            animationFillMode: 'forwards',
+          }}
+        >
+          {emoji.emoji}
+        </div>
+      ))}
+      <style jsx>{`
+        @keyframes fall {
+          to {
+            transform: translateY(100vh) rotate(360deg);
+            opacity: 0;
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Celebration Overlay Component
+interface CelebrationOverlayProps {
+  overlayImage: string | null;
+  onClose: () => void;
+}
+
+const CelebrationOverlay = ({ overlayImage, onClose }: CelebrationOverlayProps) => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <FallingEmojis />
+
+      <div className="relative max-w-2xl max-h-[80vh] mx-4 bg-white rounded-3xl shadow-2xl overflow-hidden transform animate-bounce">
+        <div className="p-8 text-center">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">
+              🎉 {t("editor.celebrationTitle")}
+            </h2>
+            <p className="text-slate-600">
+              {t("editor.celebrationMessage")}
+            </p>
+          </div>
+
+          {overlayImage && (
+            <div className="mb-6 flex justify-center">
+              <img
+                src={overlayImage}
+                alt="Your photoframe"
+                className="max-w-full max-h-64 rounded-2xl shadow-lg border-4 border-slate-100"
+              />
+            </div>
+          )}
+
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={onClose}
+              className="px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-colors"
+            >
+              {t("editor.celebrationContinue")}
+            </button>
+          </div>
         </div>
       </div>
     </div>
