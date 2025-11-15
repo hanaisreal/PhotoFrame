@@ -1,0 +1,6 @@
+rembg>=2.0.55
+Flask>=2.3.3
+Flask-CORS>=4.0.0
+Pillow>=10.0.1
+requests>=2.31.0
+onnxruntime>=1.23.0

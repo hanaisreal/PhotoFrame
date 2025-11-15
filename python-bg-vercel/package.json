@@ -1,0 +1,23 @@
+{
+  "name": "background-removal-vercel",
+  "version": "1.0.0",
+  "description": "Python background removal service for Vercel",
+  "main": "api/health.py",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "background-removal",
+    "rembg",
+    "python",
+    "vercel",
+    "serverless",
+    "image-processing"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}
