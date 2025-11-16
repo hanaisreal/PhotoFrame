@@ -954,7 +954,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             <p className="mt-1">{t("editor.supabaseNote")}</p>
           </div>
         </div>
-        </div>
       </div>
 
       <div className="min-w-0 flex flex-1 flex-col gap-4">
@@ -962,7 +961,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           <EditorCanvas stageRef={stageRef} />
         </div>
       </div>
-
+      </div>
 
       {/* Celebration popup with falling emojis */}
       {showCelebration && (
