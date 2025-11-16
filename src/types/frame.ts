@@ -48,6 +48,9 @@ export interface ImageElement {
   clipToSlot: boolean;
   backgroundRemoved: boolean;
   opacity?: number;
+  zIndex?: number;
+  isLocked?: boolean;
+  isVisible?: boolean;
 }
 
 export interface StickerElement {
@@ -62,6 +65,9 @@ export interface StickerElement {
   scaleY: number;
   rotation: number;
   opacity?: number;
+  zIndex?: number;
+  isLocked?: boolean;
+  isVisible?: boolean;
 }
 
 export interface TextElement {

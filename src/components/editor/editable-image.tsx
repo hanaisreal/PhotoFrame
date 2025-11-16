@@ -78,7 +78,7 @@ export const EditableImage = <T extends EditableElement>({
       scaleY={element.scaleY}
       rotation={element.rotation}
       opacity={element.opacity ?? 1}
-      draggable={draggable}
+      draggable={draggable && !(element.isLocked ?? false)}
       onClick={() => {
         console.log('🖱️ LEFT CLICK on image:', element.id);
         onSelect(kind);
@@ -113,8 +113,9 @@ export const EditableImage = <T extends EditableElement>({
       }}
       onDragEnd={handleDragEnd}
       onTransformEnd={handleTransformEnd}
-      stroke={isSelected ? "#2563eb" : undefined}
-      strokeWidth={isSelected ? 1 : 0}
+      stroke={isSelected ? "#2563eb" : (element.isLocked ? "#ef4444" : undefined)}
+      strokeWidth={isSelected || element.isLocked ? 1 : 0}
+      visible={element.isVisible ?? true}
     />
   );
 };

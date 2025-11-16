@@ -28,6 +28,7 @@ interface ContextMenuProps {
   elementType: 'image' | 'text' | 'sticker';
   isLocked?: boolean;
   elementVisible?: boolean;
+  elementOpacity?: number;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -37,14 +38,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onAction,
   elementType,
   isLocked = false,
-  elementVisible = true
+  elementVisible = true,
+  elementOpacity = 1
 }) => {
-  console.log('🎨 ContextMenu render:', {
-    isVisible,
-    position,
-    elementType,
-    timestamp: Date.now()
-  });
   const menuRef = useRef<HTMLDivElement>(null);
   const openingTimeRef = useRef<number>(0);
 
@@ -111,11 +107,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   }, [isVisible, onClose]);
 
   if (!isVisible) {
-    console.log('❌ Context menu not visible, returning null');
     return null;
   }
-
-  console.log('✅ Context menu is visible, rendering...');
 
   // Smart positioning to keep menu close to mouse but within viewport
   const menuWidth = 200;
@@ -143,8 +136,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     // Image-specific options
     ...(elementType === 'image' ? [
       { icon: Crop, label: 'Crop', action: 'crop', divider: false },
-      { icon: Palette, label: 'Transparency', action: 'transparency', divider: false },
-      { icon: RotateCw, label: 'Rotate', action: 'rotate', divider: false },
+      { icon: Palette, label: `Transparency (${Math.round(elementOpacity * 100)}%)`, action: 'transparency', divider: false },
+      { icon: RotateCw, label: 'Rotate 90°', action: 'rotate', divider: false },
       { icon: FlipHorizontal, label: 'Flip H', action: 'flip-h', divider: false },
       { icon: FlipVertical, label: 'Flip V', action: 'flip-v', divider: true },
     ] : []),
@@ -164,8 +157,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     },
   ];
 
-  console.log('🎨 Creating menu element at:', adjustedPosition);
-
   const menuElement = (
     <div
       ref={menuRef}
@@ -181,7 +172,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       onContextMenu={(e) => e.preventDefault()}
       onClick={(e) => {
         e.stopPropagation();
-        console.log('🖱️ Clicked inside context menu - not closing');
       }}
     >
       {menuItems.map((item, index) => (
@@ -205,7 +195,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   );
 
   // Temporarily render directly (not as portal) for debugging
-  console.log('🚀 Rendering context menu directly (debug mode)');
   return menuElement;
 
   // TODO: Re-enable portal after debugging

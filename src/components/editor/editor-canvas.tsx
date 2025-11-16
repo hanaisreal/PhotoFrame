@@ -61,6 +61,8 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     elementType: null,
   });
 
+
+
   type TransformerBoundBox = {
     x: number;
     y: number;
@@ -203,10 +205,35 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     }
   }, [setContextMenu, contextMenu.visible]);
 
+  const handleStageDeselection = useCallback((event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const isMouseEvent = event.evt instanceof MouseEvent;
+    const button = isMouseEvent ? (event.evt as MouseEvent).button : undefined;
+
+    console.log('🎯 Stage deselection triggered:', {
+      target: event.target,
+      button: button,
+      contextMenuVisible: contextMenu.visible,
+      eventType: isMouseEvent ? 'mouse' : 'touch'
+    });
+
+    // Don't close context menu on right-clicks or if context menu is visible
+    // Only check button for mouse events
+    if ((isMouseEvent && button === 2) || contextMenu.visible) {
+      console.log('🚫 Ignoring stage deselection - right click or context menu visible');
+      return;
+    }
+
+    if (selection.id) {
+      console.log('🔄 Clearing selection');
+      setSelection({ id: null, kind: null });
+      setContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  }, [selection.id, setSelection, contextMenu.visible]);
+
   // Update handleStageDeselection to use current contextMenu state
   const handleStageDeselectionWithContext = useCallback((event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     return handleStageDeselection(event);
-  }, [contextMenu.visible]);
+  }, [handleStageDeselection]);
 
 
   useEffect(() => {
@@ -229,32 +256,16 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     }
   }, [selection, stageRef]);
 
-  const handleStageDeselection = (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-    console.log('🎯 Stage deselection triggered:', {
-      target: event.target,
-      isStage: event.target === event.target.getStage(),
-      eventType: event.evt.type,
-      button: event.evt.button
-    });
-
-    // Don't close context menu on right-clicks or if context menu is visible
-    if (event.evt.button === 2 || contextMenu.visible) {
-      console.log('🚫 Ignoring stage deselection - right click or context menu visible');
-      return;
-    }
-
-    const clickedOnEmpty = event.target === event.target.getStage();
-    if (clickedOnEmpty) {
-      console.log('🔄 Deselecting and closing context menu');
-      setSelection({ id: null, kind: null });
-      setContextMenu(prev => ({ ...prev, visible: false }));
-    }
-  };
 
   const closeContextMenu = useCallback(() => {
     console.log('🔒 Closing context menu');
     setContextMenu(prev => ({ ...prev, visible: false }));
   }, []);
+
+
+  const generateUniqueId = () => {
+    return `img-${Math.random().toString(36).substr(2, 8)}`;
+  };
 
   const handleContextMenuAction = (action: string) => {
     const { elementId, elementType } = contextMenu;
@@ -262,37 +273,52 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
 
     switch (action) {
       case 'copy':
-        // TODO: Implement copy to clipboard
-        console.log('Copy action for:', elementType, elementId);
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            // Copy to clipboard as JSON
+            const imageData = { ...image, type: 'image' };
+            navigator.clipboard.writeText(JSON.stringify(imageData))
+              .then(() => console.log('✅ Image copied to clipboard'))
+              .catch(err => console.error('❌ Failed to copy:', err));
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            const stickerData = { ...sticker, type: 'sticker' };
+            navigator.clipboard.writeText(JSON.stringify(stickerData))
+              .then(() => console.log('✅ Sticker copied to clipboard'))
+              .catch(err => console.error('❌ Failed to copy:', err));
+          }
+        }
         break;
 
       case 'duplicate':
         if (elementType === 'image') {
           const originalImage = images.find(img => img.id === elementId);
           if (originalImage) {
-            addImage({
+            const newImage = {
               ...originalImage,
+              id: generateUniqueId(),
               x: originalImage.x + 20,
               y: originalImage.y + 20,
-            });
+              zIndex: (originalImage.zIndex ?? 0) + 1,
+            };
+            addImage(newImage);
+            console.log('✅ Image duplicated with new ID:', newImage.id);
           }
         } else if (elementType === 'sticker') {
           const originalSticker = stickers.find(sticker => sticker.id === elementId);
           if (originalSticker) {
-            addSticker({
+            const newSticker = {
               ...originalSticker,
+              id: generateUniqueId(),
               x: originalSticker.x + 20,
               y: originalSticker.y + 20,
-            });
-          }
-        } else if (elementType === 'text') {
-          const originalText = texts.find(text => text.id === elementId);
-          if (originalText) {
-            addText({
-              ...originalText,
-              x: originalText.x + 20,
-              y: originalText.y + 20,
-            });
+              zIndex: (originalSticker.zIndex ?? 0) + 1,
+            };
+            addSticker(newSticker);
+            console.log('✅ Sticker duplicated with new ID:', newSticker.id);
           }
         }
         break;
@@ -306,22 +332,51 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
           removeText(elementId);
         }
         setSelection({ id: null, kind: null });
+        console.log('✅ Element deleted:', elementId);
         break;
 
       case 'bring-front':
-        // TODO: Implement z-index management
-        console.log('Bring to front:', elementType, elementId);
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            const maxZ = Math.max(...images.map(img => img.zIndex ?? 0), 0);
+            updateImage(elementId, { zIndex: maxZ + 1 });
+            console.log('✅ Image brought to front, z-index:', maxZ + 1);
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            const maxZ = Math.max(...stickers.map(s => s.zIndex ?? 0), 0);
+            updateSticker(elementId, { zIndex: maxZ + 1 });
+            console.log('✅ Sticker brought to front, z-index:', maxZ + 1);
+          }
+        }
         break;
 
       case 'send-back':
-        // TODO: Implement z-index management
-        console.log('Send to back:', elementType, elementId);
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            const minZ = Math.min(...images.map(img => img.zIndex ?? 0), 0);
+            updateImage(elementId, { zIndex: minZ - 1 });
+            console.log('✅ Image sent to back, z-index:', minZ - 1);
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            const minZ = Math.min(...stickers.map(s => s.zIndex ?? 0), 0);
+            updateSticker(elementId, { zIndex: minZ - 1 });
+            console.log('✅ Sticker sent to back, z-index:', minZ - 1);
+          }
+        }
         break;
 
       case 'crop':
         if (elementType === 'image') {
-          // TODO: Implement crop functionality
-          console.log('Crop image:', elementId);
+          // Enter crop mode - we'll implement a crop overlay
+          console.log('🔲 Entering crop mode for image:', elementId);
+          // TODO: Implement crop overlay UI
+          alert('Crop functionality - Coming soon! Will add interactive crop overlay.');
         }
         break;
 
@@ -329,17 +384,22 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         if (elementType === 'image') {
           const image = images.find(img => img.id === elementId);
           if (image) {
-            // Toggle transparency (opacity)
-            const currentOpacity = image.opacity ?? 1;
-            const newOpacity = currentOpacity === 0.5 ? 1 : 0.5;
-            updateImage(elementId, { opacity: newOpacity });
+            const currentOpacity = Math.round((image.opacity ?? 1) * 100);
+            const newOpacity = prompt(`Set transparency (0-100%):`, currentOpacity.toString());
+            if (newOpacity !== null) {
+              const opacityValue = Math.max(0, Math.min(100, parseInt(newOpacity) || 100)) / 100;
+              updateImage(elementId, { opacity: opacityValue });
+            }
           }
         } else if (elementType === 'sticker') {
           const sticker = stickers.find(s => s.id === elementId);
           if (sticker) {
-            const currentOpacity = sticker.opacity ?? 1;
-            const newOpacity = currentOpacity === 0.5 ? 1 : 0.5;
-            updateSticker(elementId, { opacity: newOpacity });
+            const currentOpacity = Math.round((sticker.opacity ?? 1) * 100);
+            const newOpacity = prompt(`Set transparency (0-100%):`, currentOpacity.toString());
+            if (newOpacity !== null) {
+              const opacityValue = Math.max(0, Math.min(100, parseInt(newOpacity) || 100)) / 100;
+              updateSticker(elementId, { opacity: opacityValue });
+            }
           }
         }
         break;
@@ -363,6 +423,13 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
           const image = images.find(img => img.id === elementId);
           if (image) {
             updateImage(elementId, { scaleX: -image.scaleX });
+            console.log('✅ Image flipped horizontally');
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            updateSticker(elementId, { scaleX: -sticker.scaleX });
+            console.log('✅ Sticker flipped horizontally');
           }
         }
         break;
@@ -372,22 +439,60 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
           const image = images.find(img => img.id === elementId);
           if (image) {
             updateImage(elementId, { scaleY: -image.scaleY });
+            console.log('✅ Image flipped vertically');
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            updateSticker(elementId, { scaleY: -sticker.scaleY });
+            console.log('✅ Sticker flipped vertically');
           }
         }
         break;
 
       case 'toggle-lock':
-        // TODO: Implement lock/unlock functionality
-        console.log('Toggle lock:', elementType, elementId);
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            const isLocked = !(image.isLocked ?? false);
+            updateImage(elementId, { isLocked });
+            console.log('✅ Image lock toggled:', isLocked ? 'LOCKED' : 'UNLOCKED');
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            const isLocked = !(sticker.isLocked ?? false);
+            updateSticker(elementId, { isLocked });
+            console.log('✅ Sticker lock toggled:', isLocked ? 'LOCKED' : 'UNLOCKED');
+          }
+        }
         break;
 
       case 'toggle-visibility':
-        // TODO: Implement show/hide functionality
-        console.log('Toggle visibility:', elementType, elementId);
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            const isVisible = !(image.isVisible ?? true);
+            updateImage(elementId, { isVisible });
+            console.log('✅ Image visibility toggled:', isVisible ? 'VISIBLE' : 'HIDDEN');
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            const isVisible = !(sticker.isVisible ?? true);
+            updateSticker(elementId, { isVisible });
+            console.log('✅ Sticker visibility toggled:', isVisible ? 'VISIBLE' : 'HIDDEN');
+          }
+        }
         break;
 
       default:
         console.log('Unknown action:', action);
+    }
+
+    // Close context menu after action (unless opening transparency slider)
+    if (action !== 'transparency') {
+      closeContextMenu();
     }
   };
 
@@ -407,7 +512,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const floatingImages = images.filter((image) => !image.slotId);
 
   const renderSlotImages = (slotId: string) =>
-    groupedImages.get(slotId)?.map((image) => (
+    groupedImages.get(slotId)?.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((image) => (
       <EditableImage
         key={`slot-${slotId}-${image.id}`}
         nodeId={`image-${image.id}`}
@@ -424,7 +529,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     ));
 
   const renderFloatingImages = () =>
-    floatingImages.map((image) => (
+    floatingImages.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((image) => (
       <EditableImage
         key={`floating-${image.id}`}
         nodeId={`image-${image.id}`}
@@ -441,7 +546,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     ));
 
   const renderStickers = () =>
-    stickers.map((sticker) => (
+    stickers.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((sticker) => (
       <EditableImage
         key={`sticker-${sticker.id}`}
         nodeId={`sticker-${sticker.id}`}
@@ -625,12 +730,10 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
 
       {/* Context Menu */}
       {(() => {
-        console.log('🎨 Rendering ContextMenu with props:', {
-          isVisible: contextMenu.visible,
-          position: contextMenu.position,
-          elementType: contextMenu.elementType || 'image',
-          contextMenuState: contextMenu
-        });
+        const element = contextMenu.elementType === 'image'
+          ? images.find(img => img.id === contextMenu.elementId)
+          : stickers.find(s => s.id === contextMenu.elementId);
+
         return (
           <ContextMenu
             isVisible={contextMenu.visible}
@@ -638,6 +741,9 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
             onClose={closeContextMenu}
             onAction={handleContextMenuAction}
             elementType={contextMenu.elementType || 'image'}
+            isLocked={element?.isLocked ?? false}
+            elementVisible={element?.isVisible ?? true}
+            elementOpacity={element?.opacity ?? 1}
           />
         );
       })()}
