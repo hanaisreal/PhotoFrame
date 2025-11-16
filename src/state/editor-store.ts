@@ -38,7 +38,6 @@ interface EditorActions {
   setFrameOptions: (
     frame: Partial<FrameLayout["frame"]>,
   ) => void;
-  setBottomText: (bottomText: Partial<FrameLayout["bottomText"]>) => void;
   setSlotCount: (count: number) => void;
   setSelection: (selection: SelectionState) => void;
   addImage: (input: Omit<ImageElement, "id"> & { id?: string }) => string;
@@ -105,14 +104,6 @@ export const useEditorStore = create<EditorState & EditorActions>(
         layout: {
           ...state.layout,
           frame: { ...state.layout.frame, ...frame },
-        },
-        isDirty: true,
-      })),
-    setBottomText: (bottomText) =>
-      set((state) => ({
-        layout: {
-          ...state.layout,
-          bottomText: { ...state.layout.bottomText, ...bottomText },
         },
         isDirty: true,
       })),
@@ -260,6 +251,8 @@ export const useEditorStore = create<EditorState & EditorActions>(
         fontFamily: "var(--font-geist-sans)",
         color: "#111111",
         rotation: 0,
+        isLocked: false,
+        isVisible: true,
       };
       set((state) => ({
         texts: [

@@ -23,14 +23,6 @@ export interface FrameLayout {
     gutter: number;
     backgroundColor: string;
   };
-  bottomText: {
-    content: string;
-    color: string;
-    fontSize: number;
-    fontFamily: string;
-    letterSpacing: number;
-    offsetY: number;
-  };
   slots: FrameSlot[];
 }
 
@@ -81,6 +73,10 @@ export interface TextElement {
   fontFamily: string;
   color: string;
   rotation: number;
+  scaleX?: number;
+  scaleY?: number;
+  isLocked?: boolean;
+  isVisible?: boolean;
 }
 
 export interface FrameTemplate {

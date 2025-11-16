@@ -56,14 +56,6 @@ export const createDefaultVerticalLayout = (
       gutter,
       backgroundColor: "#000000",
     },
-    bottomText: {
-      content: "",
-      color: "#111111",
-      fontSize: 64,
-      fontFamily: "var(--font-geist-sans)",
-      letterSpacing: 4,
-      offsetY: 90,
-    },
     slots,
   };
 };

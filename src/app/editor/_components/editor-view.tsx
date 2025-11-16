@@ -73,7 +73,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     (state) => state.setTemplateDescription,
   );
   const setFrameOptions = useEditorStore((state) => state.setFrameOptions);
-  const setBottomText = useEditorStore((state) => state.setBottomText);
   const setSlotCount = useEditorStore((state) => state.setSlotCount);
   const addImage = useEditorStore((state) => state.addImage);
   const removeImage = useEditorStore((state) => state.removeImage);
@@ -221,138 +220,12 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const renderTextStep = () => (
     <div className="space-y-6 text-sm">
       <div>
-        <h2 className="text-base font-semibold text-slate-900">{t("editor.bottomText")}</h2>
-        <div className="mt-4 space-y-3">
-          <label className="grid gap-1">
-            <span className="font-medium text-gray-600">{t("editor.text")}</span>
-            <input
-              type="text"
-              value={layout.bottomText.content}
-              onChange={(event) =>
-                setBottomText({ content: event.target.value })
-              }
-              className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900/20"
-            />
-          </label>
-          <label className="flex items-center justify-between text-sm text-gray-600">
-            <span>{t("editor.textColor")}</span>
-            <input
-              type="color"
-              value={layout.bottomText.color}
-              onChange={(event) =>
-                setBottomText({ color: event.target.value })
-              }
-              className="h-8 w-16 cursor-pointer rounded border border-gray-200"
-            />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm text-gray-600">
-              {t("editor.fontSize")} ({layout.bottomText.fontSize.toFixed(0)}{t("editor.px")})
-            </span>
-            <input
-              type="range"
-              min={24}
-              max={96}
-              value={layout.bottomText.fontSize}
-              onChange={(event) =>
-                setBottomText({ fontSize: Number(event.target.value) })
-              }
-            />
-          </label>
-        </div>
-      </div>
-      <div>
         <h2 className="text-base font-semibold text-slate-900">{t("editor.textBox")}</h2>
-        <div className="mt-3 flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => addText()}
-            className="rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm font-medium text-gray-600 transition hover:border-slate-900 hover:text-slate-900"
-          >
-            {t("editor.addText")}
-          </button>
-          {texts.length === 0 ? (
-            <p className="text-xs text-gray-500">
-              {t("editor.textBoxDescription")}
-            </p>
-          ) : null}
-          {texts.map((text) => (
-            <div
-              key={text.id}
-              className="rounded-2xl border border-slate-200 p-3 text-sm"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800">
-                  {t("editor.textId")}{text.id.slice(-4)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeText(text.id)}
-                  className="text-xs font-semibold text-rose-500 hover:text-rose-600"
-                >
-                  {t("editor.delete")}
-                </button>
-              </div>
-              <label className="mt-2 grid gap-1 text-xs">
-                <span className="font-medium text-gray-600">{t("editor.textContent")}</span>
-                <input
-                  type="text"
-                  value={text.content}
-                  onChange={(event) =>
-                    updateTextElement(text.id, {
-                      content: event.target.value,
-                    })
-                  }
-                  className="rounded-lg border border-gray-200 px-2 py-1 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900/20"
-                />
-              </label>
-              <div className="mt-2 grid grid-cols-2 gap-3 text-xs text-gray-600">
-                <label className="grid gap-1">
-                  <span>{t("editor.textColorLabel")}</span>
-                  <input
-                    type="color"
-                    value={text.color}
-                    onChange={(event) =>
-                      updateTextElement(text.id, {
-                        color: event.target.value,
-                      })
-                    }
-                    className="h-8 w-full cursor-pointer rounded border border-gray-200"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span>{t("editor.fontSizeLabel")} ({text.fontSize.toFixed(0)}{t("editor.px")})</span>
-                  <input
-                    type="range"
-                    min={12}
-                    max={120}
-                    value={text.fontSize}
-                    onChange={(event) =>
-                      updateTextElement(text.id, {
-                        fontSize: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-              </div>
-              <label className="mt-2 grid gap-1 text-xs text-gray-600">
-                <span>{t("editor.alignment")}</span>
-                <select
-                  value={text.align}
-                  onChange={(event) =>
-                    updateTextElement(text.id, {
-                      align: event.target.value as typeof text.align,
-                    })
-                  }
-                  className="rounded-lg border border-gray-200 px-2 py-1 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900/20"
-                >
-                  <option value="left">{t("editor.alignLeft")}</option>
-                  <option value="center">{t("editor.alignCenter")}</option>
-                  <option value="right">{t("editor.alignRight")}</option>
-                </select>
-              </label>
-            </div>
-          ))}
+        <div className="mt-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+          <p className="font-medium text-slate-800">Coming soon!</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Text creation and editing are temporarily locked while we improve the experience. Existing text layers will still render on the canvas, but changes are disabled for now.
+          </p>
         </div>
       </div>
     </div>
@@ -745,13 +618,10 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     const stage = stageRef.current;
     let nextOverlay = overlayDataUrl;
 
-    // Only generate new overlay if we don't have one yet
-    if (stage && !overlayDataUrl) {
+    // Always regenerate overlay so every saved template reflects the latest arrangement
+    if (stage) {
       nextOverlay = exportStageWithTransparentSlots(stage);
       setOverlayDataUrl(nextOverlay);
-    } else if (stage && overlayDataUrl) {
-      // If we already have an overlay, use it for saving but don't regenerate
-      nextOverlay = overlayDataUrl;
     }
 
     try {

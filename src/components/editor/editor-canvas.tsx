@@ -100,16 +100,82 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     [selection.kind],
   );
 
+  const textTransformCache = useRef(
+    new Map<
+      string,
+      { width: number; height: number; fontSize: number }
+    >(),
+  );
+
+  const beginTextTransform = useCallback((node: Konva.Text) => {
+    const cache = {
+      width: Math.max(Math.abs(node.width()), 1),
+      height: Math.max(Math.abs(node.height()), 1),
+      fontSize: node.fontSize(),
+    };
+    textTransformCache.current.set(node.id(), cache);
+  }, []);
+
   const applyTextTransform = useCallback(
     (node: Konva.Text, commit: boolean) => {
+      let cache = textTransformCache.current.get(node.id());
+
+      if (!cache) {
+        const stateText =
+          selection.kind === "text" && selection.id
+            ? texts.find((t) => t.id === selection.id)
+            : undefined;
+        cache = {
+          width: Math.max(
+            stateText?.width ?? Math.abs(node.width()),
+            1,
+          ),
+          height: Math.max(Math.abs(node.height()), 1),
+          fontSize: stateText?.fontSize ?? node.fontSize(),
+        };
+        textTransformCache.current.set(node.id(), cache);
+      }
+
       const scaleX = node.scaleX();
       const scaleY = node.scaleY();
+      const rawWidth = Math.max(Math.abs(node.width()), 1);
+      const rawHeight = Math.max(Math.abs(node.height()), 1);
 
-      // Use the average of scaleX and scaleY for more consistent scaling
-      const avgScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
+      const hasDirectScale =
+        Math.abs(scaleX - 1) > 0.001 || Math.abs(scaleY - 1) > 0.001;
 
-      const nextWidth = Math.max(80, node.width() * Math.abs(scaleX));
-      const nextFontSize = Math.max(8, node.fontSize() * avgScale);
+      let computedScaleX = hasDirectScale
+        ? Math.abs(scaleX)
+        : Math.abs(rawWidth / cache.width);
+      let computedScaleY = hasDirectScale
+        ? Math.abs(scaleY)
+        : Math.abs(rawHeight / cache.height);
+
+      if (!Number.isFinite(computedScaleX) || computedScaleX === 0) {
+        computedScaleX = 1;
+      }
+      if (!Number.isFinite(computedScaleY) || computedScaleY === 0) {
+        computedScaleY = computedScaleX;
+      }
+
+      // Use the dominant axis to keep perceived scale consistent even if only width/height changes
+      const effectiveScale = Math.max(computedScaleX, computedScaleY);
+
+      const nextWidth = Math.max(
+        80,
+        hasDirectScale ? cache.width * computedScaleX : rawWidth,
+      );
+      const nextFontSize = Math.max(8, cache.fontSize * effectiveScale);
+
+      console.log('🔧 applyTextTransform:', {
+        commit,
+        oldFontSize: node.fontSize(),
+        scaleX,
+        scaleY,
+        effectiveScale,
+        nextFontSize,
+        nextWidth,
+      });
 
       node.width(nextWidth);
       node.fontSize(nextFontSize);
@@ -118,6 +184,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
       node.getLayer()?.batchDraw();
 
       if (commit && selection.kind === "text" && selection.id) {
+        console.log('💾 Committing text transform to state');
         updateTextElement(selection.id, {
           x: node.x(),
           y: node.y(),
@@ -125,9 +192,10 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
           width: nextWidth,
           fontSize: nextFontSize,
         });
+        textTransformCache.current.delete(node.id());
       }
     },
-    [selection.id, selection.kind, updateTextElement],
+    [selection.id, selection.kind, texts, updateTextElement],
   );
 
 
@@ -211,6 +279,8 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
 
     console.log('🎯 Stage deselection triggered:', {
       target: event.target,
+      targetName: event.target.name?.(),
+      targetClassName: event.target.className,
       button: button,
       contextMenuVisible: contextMenu.visible,
       eventType: isMouseEvent ? 'mouse' : 'touch'
@@ -223,10 +293,39 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
       return;
     }
 
-    if (selection.id) {
-      console.log('🔄 Clearing selection');
-      setSelection({ id: null, kind: null });
-      setContextMenu(prev => ({ ...prev, visible: false }));
+    // Don't deselect when clicking on text elements
+    if (event.target.className === 'Text' && event.target.name?.() === 'editable-text') {
+      console.log('🚫 Ignoring stage deselection - clicked on text element');
+      return;
+    }
+
+    // Don't deselect when clicking on images
+    if (event.target.className === 'Image') {
+      console.log('🚫 Ignoring stage deselection - clicked on image element');
+      return;
+    }
+
+    // Don't deselect when clicking on transformer anchors
+    if (event.target.className === 'Rect' && event.target.name?.().includes('_anchor')) {
+      console.log('🚫 Ignoring stage deselection - clicked on transformer anchor');
+      return;
+    }
+
+    // Don't deselect when clicking on the transformer itself
+    if (event.target.className === 'Transformer') {
+      console.log('🚫 Ignoring stage deselection - clicked on transformer');
+      return;
+    }
+
+    // Only deselect if we actually clicked on the Stage background
+    if (event.target === event.target.getStage()) {
+      console.log('🔄 Clearing selection - clicked on stage background');
+      if (selection.id) {
+        setSelection({ id: null, kind: null });
+        setContextMenu(prev => ({ ...prev, visible: false }));
+      }
+    } else {
+      console.log('🚫 Ignoring stage deselection - not stage background');
     }
   }, [selection.id, setSelection, contextMenu.visible]);
 
@@ -239,19 +338,42 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   useEffect(() => {
     const transformer = transformerRef.current;
     const stage = stageRef.current;
+
+    console.log('🔧 Transformer attachment attempt:', {
+      transformerExists: !!transformer,
+      stageExists: !!stage,
+      selection: selection
+    });
+
     if (!transformer || !stage) {
+      console.log('❌ Missing transformer or stage references');
       return;
     }
 
     if (!selection.id || !selection.kind) {
+      console.log('🧹 Clearing transformer - no selection');
       transformer.nodes([]);
       transformer.getLayer()?.batchDraw();
       return;
     }
 
-    const target = stage.findOne(`#${selection.kind}-${selection.id}`);
+    const targetId = `${selection.kind}-${selection.id}`;
+    const target = stage.findOne(`#${targetId}`);
+
+    console.log('🎯 Looking for target:', {
+      targetId: targetId,
+      found: !!target,
+      targetType: target?.className,
+      allTextNodes: stage.find('Text').map(n => ({ id: n.id(), className: n.className, name: n.name?.() }))
+    });
+
     if (target) {
+      console.log('✅ Attaching transformer to target');
       transformer.nodes([target as Konva.Node]);
+      transformer.getLayer()?.batchDraw();
+    } else {
+      console.log('❌ Target not found, clearing transformer');
+      transformer.nodes([]);
       transformer.getLayer()?.batchDraw();
     }
   }, [selection, stageRef]);
@@ -567,10 +689,12 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
       <EditableText
         key={text.id}
         nodeId={`text-${text.id}`}
-        element={text}
-        isSelected={selection.id === text.id && selection.kind === "text"}
-        onSelect={() => setSelection({ id: text.id, kind: "text" })}
-        onChange={(next) => updateTextElement(text.id, next)}
+        element={{ ...text, isLocked: true }}
+        isSelected={false}
+        onSelect={() =>
+          console.log("✋ Text editing is currently locked.")
+        }
+        onChange={() => undefined}
       />
     ));
 
@@ -598,7 +722,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         y={stageOffsetY}
         ref={stageRef}
         onClick={handleStageDeselectionWithContext}
-        onTouchStart={handleStageDeselectionWithContext}
+        onTap={handleStageDeselectionWithContext}
       >
         <Layer>
           {/* Always render the live frame structure, never use overlay in editor */}
@@ -685,44 +809,12 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
           {renderStickers()}
           {renderTexts()}
 
-          {layout.bottomText.content ? (
-            <Text
-              text={layout.bottomText.content}
-              fill={layout.bottomText.color}
-              fontSize={layout.bottomText.fontSize}
-              fontFamily={layout.bottomText.fontFamily}
-              letterSpacing={layout.bottomText.letterSpacing}
-              align="center"
-              width={layout.canvas.width}
-              x={0}
-              y={layout.canvas.height - layout.bottomText.offsetY}
-              name="frame-bottom-text"
-            />
-          ) : null}
             <Transformer
               ref={transformerRef}
               rotateEnabled
               enabledAnchors={transformerAnchors}
               boundBoxFunc={transformerBoundBox}
               anchorCornerRadius={4}
-              onTransform={() => {
-                if (selection.kind === "text") {
-                  const node = transformerRef.current
-                    ?.nodes?.()[0] as Konva.Text | undefined;
-                  if (node) {
-                    applyTextTransform(node, false);
-                  }
-                }
-              }}
-              onTransformEnd={() => {
-                if (selection.kind === "text") {
-                  const node = transformerRef.current
-                    ?.nodes?.()[0] as Konva.Text | undefined;
-                  if (node) {
-                    applyTextTransform(node, true);
-                  }
-                }
-              }}
             />
         </Layer>
       </Stage>

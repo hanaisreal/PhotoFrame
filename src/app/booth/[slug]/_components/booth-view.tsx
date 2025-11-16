@@ -1114,17 +1114,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
         ctx.restore();
       });
 
-      // 3. Draw bottom text from layout
-      if (template.layout.bottomText.content) {
-        ctx.fillStyle = template.layout.bottomText.color;
-        ctx.font = `${template.layout.bottomText.fontSize}px ${template.layout.bottomText.fontFamily}`;
-        ctx.textAlign = "center";
-        ctx.fillText(
-          template.layout.bottomText.content,
-          template.layout.canvas.width / 2,
-          template.layout.canvas.height - template.layout.bottomText.offsetY
-        );
-      }
 
       // 4. Draw slot images (photos) - IN FRONT of decorative elements
       await Promise.all(
@@ -1200,7 +1189,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
     template.stickers,
     template.images,
     template.texts,
-    template.layout.bottomText,
     template.layout.frame.color,
     template.layout.frame.thickness,
     t,
@@ -1436,23 +1424,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
                   }}
                 />
 
-                {/* Bottom text */}
-                {template.layout.bottomText.content && (
-                  <div
-                    className="absolute z-[15] text-center pointer-events-none"
-                    style={{
-                      bottom: `${template.layout.bottomText.offsetY * slotScaleY}px`,
-                      left: 0,
-                      right: 0,
-                      fontSize: `${template.layout.bottomText.fontSize * Math.min(slotScaleX, slotScaleY)}px`,
-                      color: template.layout.bottomText.color,
-                      fontFamily: template.layout.bottomText.fontFamily,
-                      letterSpacing: `${template.layout.bottomText.letterSpacing}px`,
-                    }}
-                  >
-                    {template.layout.bottomText.content}
-                  </div>
-                )}
 
                 {/* Render stickers from template */}
                 {template.stickers.map((sticker) => (
