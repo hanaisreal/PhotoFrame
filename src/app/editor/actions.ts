@@ -9,5 +9,6 @@ export const persistTemplate = async (payload: TemplatePersistencePayload) => {
   const { slug } = await saveTemplate(payload);
   revalidatePath(`/booth/${slug}`);
   revalidatePath(`/editor`, "page");
+  revalidatePath(`/photoframes`);
   return { slug };
 };

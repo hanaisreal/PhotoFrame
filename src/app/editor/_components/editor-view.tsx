@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import Link from "next/link";
 import type Konva from "konva";
-import { Download, ImageIcon, Loader2, Share2, Sparkles, Trash, Camera } from "lucide-react";
+import { ImageIcon, Loader2, Share2, Sparkles, Trash, Camera } from "lucide-react";
 import { createPortal } from "react-dom";
 
 import { useLanguage } from "@/contexts/language-context";
@@ -599,17 +599,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     });
   };
 
-  const handleGenerateOverlay = async () => {
-    const stage = stageRef.current;
-    if (!stage) {
-      setErrorMessage(t("error.canvasNotFound"));
-      return;
-    }
-    const dataUrl = exportStageWithTransparentSlots(stage);
-    setOverlayDataUrl(dataUrl);
-    setErrorMessage(null);
-  };
-
   const handleSaveTemplate = async () => {
     // Set loading state immediately when button is clicked
     setSaveState("saving");
@@ -649,15 +638,10 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       setCurrentSlug(result.slug);
       setSaveState("saved");
 
-      // Generate celebration overlay and trigger celebration
+      // Generate celebration overlay and trigger celebration (stay visible until user closes)
       if (nextOverlay) {
         setCelebrationOverlay(nextOverlay);
         setShowCelebration(true);
-        // Auto-hide celebration after 5 seconds
-        setTimeout(() => {
-          setShowCelebration(false);
-          setCelebrationOverlay(null);
-        }, 5000);
       }
 
       setTimeout(() => setSaveState("idle"), 2000);
@@ -783,14 +767,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         <div className="px-4 pb-4 mt-4 grid gap-3">
           <button
             type="button"
-            onClick={handleGenerateOverlay}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-900 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-900 hover:text-white"
-          >
-            <Download className="h-4 w-4" />
-            {t("editor.updatePreview")}
-          </button>
-          <button
-            type="button"
             onClick={handleSaveTemplate}
             className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
@@ -838,6 +814,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         <CelebrationOverlay
           overlayImage={celebrationOverlay}
           templateSlug={currentSlug}
+          shareUrl={shareUrl}
           onClose={() => {
             setShowCelebration(false);
             setCelebrationOverlay(null);
@@ -919,11 +896,13 @@ const FallingEmojis = () => {
 interface CelebrationOverlayProps {
   overlayImage: string | null;
   templateSlug: string;
+  shareUrl: string;
   onClose: () => void;
 }
 
-const CelebrationOverlay = ({ overlayImage, templateSlug, onClose }: CelebrationOverlayProps) => {
+const CelebrationOverlay = ({ overlayImage, templateSlug, shareUrl, onClose }: CelebrationOverlayProps) => {
   const [showPresent, setShowPresent] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Trigger present animation after component mounts
   useEffect(() => {
@@ -971,14 +950,32 @@ const CelebrationOverlay = ({ overlayImage, templateSlug, onClose }: Celebration
             </div>
           )}
 
+          {/* Direct share link */}
+          <div className="mb-4 rounded-2xl border border-dashed border-yellow-300 bg-yellow-50 p-4 text-left">
+            <p className="text-sm font-semibold text-yellow-900">Photoframe Link</p>
+            <p className="mt-1 text-xs text-yellow-800 break-all">{shareUrl}</p>
+            <button
+              type="button"
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-yellow-400/80 px-3 py-1.5 text-xs font-semibold text-yellow-900 transition hover:bg-yellow-400"
+              onClick={() => {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+            >
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+          </div>
+
           {/* Action buttons */}
           <div className="space-y-3">
             <Link
-              href={`/booth/${templateSlug}`}
+              href={shareUrl || `/booth/${templateSlug}`}
               className="w-full bg-emerald-600 text-white py-3 px-6 rounded-xl text-lg font-semibold hover:bg-emerald-700 transition-all transform hover:scale-105 inline-flex items-center justify-center gap-2"
             >
               <Camera className="h-5 w-5" />
-              Try Your PhotoFrame!
+              Let's take photos right now!
             </Link>
 
             <button

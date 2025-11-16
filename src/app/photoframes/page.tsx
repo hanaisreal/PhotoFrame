@@ -1,6 +1,9 @@
 import { getTemplatesPaginated } from "@/lib/templates";
 import { PhotoframesView } from "./_components/photoframes-view";
 
+export const dynamic = "force-dynamic";
+
+
 const PhotoframesPage = async () => {
   // Load initial 9 templates (3x3 grid)
   const { templates, totalCount } = await getTemplatesPaginated(1, 9);
