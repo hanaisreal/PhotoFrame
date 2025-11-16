@@ -882,66 +882,35 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     <>
       <LoadingSpinner />
       <div className="mx-auto flex w-full max-w-6xl items-stretch gap-6 p-4">
-      <div className="flex h-[calc(100vh-120px)] w-[320px] flex-col rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <div className="flex-1 space-y-6 overflow-y-auto pr-2">
-          <div className="flex flex-wrap gap-2">
-            {steps.map((step, index) => {
-              const isActive = index === currentStepIndex;
-              const isCompleted = index < currentStepIndex;
-              return (
-                <button
-                  type="button"
-                  key={step.id}
-                  onClick={() => setCurrentStepIndex(index)}
-                  className={`flex flex-1 min-w-[120px] flex-col rounded-2xl border px-3 py-2 text-left transition ${
-                    isActive
-                      ? "border-slate-900 bg-slate-900/5"
-                      : isCompleted
-                        ? "border-emerald-500/40 bg-emerald-50"
-                        : "border-slate-200 hover:border-slate-900/60"
-                  }`}
-                >
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    STEP {index + 1}
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900">
-                    {step.title}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {step.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div>{steps[currentStepIndex].render()}</div>
-          <div className="flex items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={() =>
-                setCurrentStepIndex((prev) => Math.max(0, prev - 1))
-              }
-              disabled={currentStepIndex === 0}
-              className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition enabled:hover:border-slate-900 enabled:hover:text-slate-900 disabled:opacity-50"
-            >
-              {t("editor.previous")}
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setCurrentStepIndex((prev) =>
-                  Math.min(steps.length - 1, prev + 1),
-                )
-              }
-              disabled={currentStepIndex === steps.length - 1}
-              className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {currentStepIndex === steps.length - 1 ? t("editor.completed") : t("editor.next")}
-            </button>
-          </div>
+      <div className="flex h-[calc(100vh-120px)] w-[320px] flex-col rounded-2xl bg-white shadow-sm border border-gray-100">
+        {/* Clean Tab Navigation */}
+        <div className="flex p-1 bg-gray-50 rounded-2xl m-3">
+          {steps.map((step, index) => {
+            const isActive = index === currentStepIndex;
+            return (
+              <button
+                type="button"
+                key={step.id}
+                onClick={() => setCurrentStepIndex(index)}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+                  isActive
+                    ? "bg-white shadow-sm text-gray-900"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {step.title}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="mt-4 grid gap-3">
+        {/* Content Area */}
+        <div className="flex-1 px-4 pb-4 overflow-y-auto">
+          {steps[currentStepIndex].render()}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="px-4 pb-4 mt-4 grid gap-3">
           <button
             type="button"
             onClick={handleGenerateOverlay}
@@ -985,6 +954,7 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             <p className="mt-1">{t("editor.supabaseNote")}</p>
           </div>
         </div>
+        </div>
       </div>
 
       <div className="min-w-0 flex flex-1 flex-col gap-4">
@@ -1005,7 +975,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           }}
         />
       )}
-      </div>
     </>
   );
 };
