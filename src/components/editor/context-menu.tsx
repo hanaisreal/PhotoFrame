@@ -42,25 +42,71 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   console.log('🎨 ContextMenu render:', {
     isVisible,
     position,
-    elementType
+    elementType,
+    timestamp: Date.now()
   });
   const menuRef = useRef<HTMLDivElement>(null);
+  const openingTimeRef = useRef<number>(0);
+
+  // Add logging to onClose to track when and why it's being called
+  const loggedOnClose = () => {
+    console.log('🚨 CONTEXT MENU CLOSING - onClose called!', {
+      timestamp: Date.now(),
+      timeSinceOpen: Date.now() - openingTimeRef.current,
+      stackTrace: new Error().stack
+    });
+    onClose();
+  };
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
     if (isVisible) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('contextmenu', handleClickOutside);
+      console.log('🚀 Context menu becoming visible, recording opening time');
+      openingTimeRef.current = Date.now();
+
+      const handleClickOutside = (event: MouseEvent) => {
+        const timeSinceOpen = Date.now() - openingTimeRef.current;
+        console.log('🖱️ Mouse event detected', {
+          type: event.type,
+          button: event.button,
+          target: event.target,
+          timeSinceOpen: timeSinceOpen + 'ms',
+          menuRef: menuRef.current
+        });
+
+        // Ignore right mouse button events (button 2) completely - they're for opening, not closing
+        if (event.button === 2) {
+          console.log('🚫 Ignoring right mouse button event');
+          return;
+        }
+
+        // Ignore clicks that happen too soon after opening (within 300ms)
+        if (timeSinceOpen < 300) {
+          console.log('⏰ Ignoring click - too soon after opening');
+          return;
+        }
+
+        // Only close on LEFT clicks outside the menu
+        if (event.button === 0 && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          console.log('📴 Closing context menu due to left click outside');
+          loggedOnClose();
+        } else {
+          console.log('🏠 Click was inside menu or not a left click, keeping open');
+        }
+      };
+
+      console.log('🎧 Adding mouse event listeners');
+      document.addEventListener('mousedown', handleClickOutside, true);
+      document.addEventListener('mouseup', handleClickOutside, true);
+
+      return () => {
+        console.log('🧹 Cleaning up context menu listeners');
+        document.removeEventListener('mousedown', handleClickOutside, true);
+        document.removeEventListener('mouseup', handleClickOutside, true);
+      };
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('contextmenu', handleClickOutside);
+      console.log('🧹 Context menu not visible, no cleanup needed');
     };
   }, [isVisible, onClose]);
 
@@ -72,9 +118,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   console.log('✅ Context menu is visible, rendering...');
 
   // Smart positioning to keep menu close to mouse but within viewport
+  const menuWidth = 200;
+  const menuHeight = 300;
+
   const adjustedPosition = {
-    x: Math.min(position.x + 5, window.innerWidth - 200), // 5px offset, stay within viewport
-    y: Math.min(position.y + 5, window.innerHeight - 300), // 5px offset, stay within viewport
+    x: position.x + menuWidth > window.innerWidth
+      ? position.x - menuWidth - 10  // Show on left if too close to right edge
+      : position.x,
+    y: position.y + menuHeight > window.innerHeight
+      ? position.y - menuHeight - 10 // Show above if too close to bottom edge
+      : position.y,
   };
 
   const menuItems = [
@@ -116,20 +169,25 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const menuElement = (
     <div
       ref={menuRef}
-      className="fixed min-w-48 rounded-lg bg-white border border-gray-200 shadow-xl py-2"
+      className="fixed min-w-48 rounded-xl bg-white border border-gray-200 shadow-lg py-1 animate-in fade-in-0 zoom-in-95 duration-200"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
         zIndex: 999999,
         pointerEvents: 'auto',
-        backgroundColor: 'white',
+        backdropFilter: 'blur(10px)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
       }}
       onContextMenu={(e) => e.preventDefault()}
+      onClick={(e) => {
+        e.stopPropagation();
+        console.log('🖱️ Clicked inside context menu - not closing');
+      }}
     >
       {menuItems.map((item, index) => (
         <React.Fragment key={item.action}>
           <button
-            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-3 transition-colors"
+            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-3 transition-all duration-150 hover:scale-[1.02] rounded-lg mx-1"
             onClick={() => {
               onAction(item.action);
               onClose();

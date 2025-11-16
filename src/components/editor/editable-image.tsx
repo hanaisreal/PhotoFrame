@@ -79,9 +79,38 @@ export const EditableImage = <T extends EditableElement>({
       rotation={element.rotation}
       opacity={element.opacity ?? 1}
       draggable={draggable}
-      onClick={() => onSelect(kind)}
-      onTap={() => onSelect(kind)}
-      onContextMenu={onContextMenu}
+      onClick={() => {
+        console.log('🖱️ LEFT CLICK on image:', element.id);
+        onSelect(kind);
+      }}
+      onTap={() => {
+        console.log('📱 TAP on image:', element.id);
+        onSelect(kind);
+      }}
+      onMouseEnter={() => {
+        console.log('🏠 HOVER on image:', element.id);
+      }}
+      onMouseLeave={() => {
+        console.log('🚪 LEAVE image:', element.id);
+      }}
+      onContextMenu={(e) => {
+        console.log('🖱️ RIGHT-CLICK on image:', element.id, 'Selected:', isSelected);
+        e.evt.preventDefault();
+        e.evt.stopPropagation();
+
+        // Always select the image immediately on right-click
+        if (!isSelected) {
+          console.log('🎯 Selecting image immediately:', element.id);
+          onSelect(kind);
+        }
+
+        if (onContextMenu) {
+          console.log('📞 Calling onContextMenu handler for image:', element.id);
+          onContextMenu(e);
+        } else {
+          console.log('❌ No onContextMenu handler provided');
+        }
+      }}
       onDragEnd={handleDragEnd}
       onTransformEnd={handleTransformEnd}
       stroke={isSelected ? "#2563eb" : undefined}

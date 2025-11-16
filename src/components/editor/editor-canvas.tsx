@@ -154,52 +154,59 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   }, [layout.canvas.height, layout.canvas.width]);
 
   const handleContextMenu = useCallback((e: any, elementId: string, elementType: 'image' | 'text' | 'sticker') => {
-    console.log('🖱️ Right-click detected!', {
+    console.log('🎯 handleContextMenu called!', {
       elementId,
       elementType,
       event: e,
-      evt: e.evt
+      evt: e?.evt,
+      currentMenuVisible: contextMenu.visible
     });
 
     e.evt.preventDefault();
 
-    // Get stage position to calculate menu position
-    const stage = stageRef.current;
-    if (!stage) {
-      console.log('❌ No stage reference');
+    // If context menu is already visible, close it first
+    if (contextMenu.visible) {
+      console.log('🔄 Context menu already visible, closing first');
+      setContextMenu(prev => ({ ...prev, visible: false }));
+      // Small delay before showing new one
+      setTimeout(() => {
+        showContextMenu();
+      }, 50);
       return;
     }
 
-    const stageBox = stage.container().getBoundingClientRect();
-    const position = {
-      x: e.evt.clientX,
-      y: e.evt.clientY,
-    };
+    showContextMenu();
 
-    console.log('📍 Context menu position:', position);
+    function showContextMenu() {
+      // Use the exact mouse position from the event
+      const position = {
+        x: e.evt.clientX + 5, // Small offset so menu doesn't cover cursor
+        y: e.evt.clientY + 5,
+      };
 
-    setContextMenu({
-      visible: true,
-      position,
-      elementId,
-      elementType,
-    });
+      console.log('📍 Context menu position:', position);
 
-    console.log('🎯 Setting context menu state:', {
-      visible: true,
-      position,
-      elementId,
-      elementType,
-    });
+      // Selection is already handled at the image level, just show context menu
+      setContextMenu({
+        visible: true,
+        position,
+        elementId,
+        elementType,
+      });
 
-    // Also select the element
-    setSelection({ id: elementId, kind: elementType });
+      console.log('🎯 Setting context menu state:', {
+        visible: true,
+        position,
+        elementId,
+        elementType,
+      });
+    }
+  }, [setContextMenu, contextMenu.visible]);
 
-    // Log the state after setting it
-    setTimeout(() => {
-      console.log('🔍 Context menu state after update:', contextMenu);
-    }, 100);
-  }, [setSelection, setContextMenu]);
+  // Update handleStageDeselection to use current contextMenu state
+  const handleStageDeselectionWithContext = useCallback((event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    return handleStageDeselection(event);
+  }, [contextMenu.visible]);
 
 
   useEffect(() => {
@@ -223,16 +230,31 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   }, [selection, stageRef]);
 
   const handleStageDeselection = (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    console.log('🎯 Stage deselection triggered:', {
+      target: event.target,
+      isStage: event.target === event.target.getStage(),
+      eventType: event.evt.type,
+      button: event.evt.button
+    });
+
+    // Don't close context menu on right-clicks or if context menu is visible
+    if (event.evt.button === 2 || contextMenu.visible) {
+      console.log('🚫 Ignoring stage deselection - right click or context menu visible');
+      return;
+    }
+
     const clickedOnEmpty = event.target === event.target.getStage();
     if (clickedOnEmpty) {
+      console.log('🔄 Deselecting and closing context menu');
       setSelection({ id: null, kind: null });
       setContextMenu(prev => ({ ...prev, visible: false }));
     }
   };
 
-  const closeContextMenu = () => {
+  const closeContextMenu = useCallback(() => {
+    console.log('🔒 Closing context menu');
     setContextMenu(prev => ({ ...prev, visible: false }));
-  };
+  }, []);
 
   const handleContextMenuAction = (action: string) => {
     const { elementId, elementType } = contextMenu;
@@ -387,7 +409,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const renderSlotImages = (slotId: string) =>
     groupedImages.get(slotId)?.map((image) => (
       <EditableImage
-        key={image.id}
+        key={`slot-${slotId}-${image.id}`}
         nodeId={`image-${image.id}`}
         element={image}
         kind="image"
@@ -404,7 +426,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const renderFloatingImages = () =>
     floatingImages.map((image) => (
       <EditableImage
-        key={image.id}
+        key={`floating-${image.id}`}
         nodeId={`image-${image.id}`}
         element={image}
         kind="image"
@@ -421,7 +443,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const renderStickers = () =>
     stickers.map((sticker) => (
       <EditableImage
-        key={sticker.id}
+        key={`sticker-${sticker.id}`}
         nodeId={`sticker-${sticker.id}`}
         element={sticker as StickerElement}
         kind="sticker"
@@ -458,7 +480,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
       className="relative flex w-full items-center justify-center overflow-hidden"
       style={{ height: "calc(100vh - 180px)", maxHeight: "720px" }}
       onContextMenu={(e) => {
-        console.log('🚫 Preventing default context menu');
+        console.log('🚫 Preventing browser context menu');
         e.preventDefault();
       }}
     >
@@ -470,8 +492,8 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         x={stageOffsetX}
         y={stageOffsetY}
         ref={stageRef}
-        onClick={handleStageDeselection}
-        onTouchStart={handleStageDeselection}
+        onClick={handleStageDeselectionWithContext}
+        onTouchStart={handleStageDeselectionWithContext}
       >
         <Layer>
           {/* Always render the live frame structure, never use overlay in editor */}
@@ -599,6 +621,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
             />
         </Layer>
       </Stage>
+
 
       {/* Context Menu */}
       {(() => {

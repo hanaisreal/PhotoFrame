@@ -478,9 +478,9 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
               {t("editor.noImagesYet")}
             </p>
           ) : (
-            images.map((image) => (
+            images.map((image, index) => (
               <div
-                key={image.id}
+                key={`${image.id}-${index}`}
                 className={`rounded-2xl border p-3 text-sm transition ${
                   selectedImageId === image.id
                     ? "border-purple-300 bg-purple-50"
