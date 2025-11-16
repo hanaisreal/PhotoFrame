@@ -15,6 +15,7 @@ import useImage from "use-image";
 
 import { EditableImage } from "@/components/editor/editable-image";
 import { EditableText } from "@/components/editor/editable-text";
+import { ContextMenu } from "@/components/editor/context-menu";
 import { useEditorStore } from "@/state/editor-store";
 import type { ImageElement, StickerElement } from "@/types/frame";
 
@@ -36,12 +37,29 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
   const updateImage = useEditorStore((state) => state.updateImage);
   const updateSticker = useEditorStore((state) => state.updateSticker);
   const updateTextElement = useEditorStore((state) => state.updateText);
+  const removeImage = useEditorStore((state) => state.removeImage);
+  const removeSticker = useEditorStore((state) => state.removeSticker);
+  const removeText = useEditorStore((state) => state.removeText);
+  const addImage = useEditorStore((state) => state.addImage);
+  const addSticker = useEditorStore((state) => state.addSticker);
+  const addText = useEditorStore((state) => state.addText);
 
 
 
   const containerRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const [scale, setScale] = useState(MAX_CANVAS_SCALE);
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    position: { x: number; y: number };
+    elementId: string | null;
+    elementType: 'image' | 'text' | 'sticker' | null;
+  }>({
+    visible: false,
+    position: { x: 0, y: 0 },
+    elementId: null,
+    elementType: null,
+  });
 
   type TransformerBoundBox = {
     x: number;
@@ -135,6 +153,55 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     return () => window.removeEventListener("resize", updateScale);
   }, [layout.canvas.height, layout.canvas.width]);
 
+  const handleContextMenu = useCallback((e: any, elementId: string, elementType: 'image' | 'text' | 'sticker') => {
+    console.log('🖱️ Right-click detected!', {
+      elementId,
+      elementType,
+      event: e,
+      evt: e.evt
+    });
+
+    e.evt.preventDefault();
+
+    // Get stage position to calculate menu position
+    const stage = stageRef.current;
+    if (!stage) {
+      console.log('❌ No stage reference');
+      return;
+    }
+
+    const stageBox = stage.container().getBoundingClientRect();
+    const position = {
+      x: e.evt.clientX,
+      y: e.evt.clientY,
+    };
+
+    console.log('📍 Context menu position:', position);
+
+    setContextMenu({
+      visible: true,
+      position,
+      elementId,
+      elementType,
+    });
+
+    console.log('🎯 Setting context menu state:', {
+      visible: true,
+      position,
+      elementId,
+      elementType,
+    });
+
+    // Also select the element
+    setSelection({ id: elementId, kind: elementType });
+
+    // Log the state after setting it
+    setTimeout(() => {
+      console.log('🔍 Context menu state after update:', contextMenu);
+    }, 100);
+  }, [setSelection, setContextMenu]);
+
+
   useEffect(() => {
     const transformer = transformerRef.current;
     const stage = stageRef.current;
@@ -159,6 +226,146 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
     const clickedOnEmpty = event.target === event.target.getStage();
     if (clickedOnEmpty) {
       setSelection({ id: null, kind: null });
+      setContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(prev => ({ ...prev, visible: false }));
+  };
+
+  const handleContextMenuAction = (action: string) => {
+    const { elementId, elementType } = contextMenu;
+    if (!elementId || !elementType) return;
+
+    switch (action) {
+      case 'copy':
+        // TODO: Implement copy to clipboard
+        console.log('Copy action for:', elementType, elementId);
+        break;
+
+      case 'duplicate':
+        if (elementType === 'image') {
+          const originalImage = images.find(img => img.id === elementId);
+          if (originalImage) {
+            addImage({
+              ...originalImage,
+              x: originalImage.x + 20,
+              y: originalImage.y + 20,
+            });
+          }
+        } else if (elementType === 'sticker') {
+          const originalSticker = stickers.find(sticker => sticker.id === elementId);
+          if (originalSticker) {
+            addSticker({
+              ...originalSticker,
+              x: originalSticker.x + 20,
+              y: originalSticker.y + 20,
+            });
+          }
+        } else if (elementType === 'text') {
+          const originalText = texts.find(text => text.id === elementId);
+          if (originalText) {
+            addText({
+              ...originalText,
+              x: originalText.x + 20,
+              y: originalText.y + 20,
+            });
+          }
+        }
+        break;
+
+      case 'delete':
+        if (elementType === 'image') {
+          removeImage(elementId);
+        } else if (elementType === 'sticker') {
+          removeSticker(elementId);
+        } else if (elementType === 'text') {
+          removeText(elementId);
+        }
+        setSelection({ id: null, kind: null });
+        break;
+
+      case 'bring-front':
+        // TODO: Implement z-index management
+        console.log('Bring to front:', elementType, elementId);
+        break;
+
+      case 'send-back':
+        // TODO: Implement z-index management
+        console.log('Send to back:', elementType, elementId);
+        break;
+
+      case 'crop':
+        if (elementType === 'image') {
+          // TODO: Implement crop functionality
+          console.log('Crop image:', elementId);
+        }
+        break;
+
+      case 'transparency':
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            // Toggle transparency (opacity)
+            const currentOpacity = image.opacity ?? 1;
+            const newOpacity = currentOpacity === 0.5 ? 1 : 0.5;
+            updateImage(elementId, { opacity: newOpacity });
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            const currentOpacity = sticker.opacity ?? 1;
+            const newOpacity = currentOpacity === 0.5 ? 1 : 0.5;
+            updateSticker(elementId, { opacity: newOpacity });
+          }
+        }
+        break;
+
+      case 'rotate':
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            updateImage(elementId, { rotation: (image.rotation + 90) % 360 });
+          }
+        } else if (elementType === 'sticker') {
+          const sticker = stickers.find(s => s.id === elementId);
+          if (sticker) {
+            updateSticker(elementId, { rotation: (sticker.rotation + 90) % 360 });
+          }
+        }
+        break;
+
+      case 'flip-h':
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            updateImage(elementId, { scaleX: -image.scaleX });
+          }
+        }
+        break;
+
+      case 'flip-v':
+        if (elementType === 'image') {
+          const image = images.find(img => img.id === elementId);
+          if (image) {
+            updateImage(elementId, { scaleY: -image.scaleY });
+          }
+        }
+        break;
+
+      case 'toggle-lock':
+        // TODO: Implement lock/unlock functionality
+        console.log('Toggle lock:', elementType, elementId);
+        break;
+
+      case 'toggle-visibility':
+        // TODO: Implement show/hide functionality
+        console.log('Toggle visibility:', elementType, elementId);
+        break;
+
+      default:
+        console.log('Unknown action:', action);
     }
   };
 
@@ -190,6 +397,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         }
         onSelect={(kind) => setSelection({ id: image.id, kind })}
         onChange={(next) => updateImage(image.id, next)}
+        onContextMenu={(e) => handleContextMenu(e, image.id, 'image')}
       />
     ));
 
@@ -206,6 +414,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         }
         onSelect={(kind) => setSelection({ id: image.id, kind })}
         onChange={(next) => updateImage(image.id, next)}
+        onContextMenu={(e) => handleContextMenu(e, image.id, 'image')}
       />
     ));
 
@@ -222,6 +431,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         }
         onSelect={(kind) => setSelection({ id: sticker.id, kind })}
         onChange={(next) => updateSticker(sticker.id, next)}
+        onContextMenu={(e) => handleContextMenu(e, sticker.id, 'sticker')}
       />
     ));
 
@@ -247,6 +457,10 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
       ref={containerRef}
       className="relative flex w-full items-center justify-center overflow-hidden"
       style={{ height: "calc(100vh - 180px)", maxHeight: "720px" }}
+      onContextMenu={(e) => {
+        console.log('🚫 Preventing default context menu');
+        e.preventDefault();
+      }}
     >
       <Stage
         width={layout.canvas.width}
@@ -256,7 +470,7 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
         x={stageOffsetX}
         y={stageOffsetY}
         ref={stageRef}
-        onMouseDown={handleStageDeselection}
+        onClick={handleStageDeselection}
         onTouchStart={handleStageDeselection}
       >
         <Layer>
@@ -385,6 +599,25 @@ export const EditorCanvas = ({ stageRef }: EditorCanvasProps) => {
             />
         </Layer>
       </Stage>
+
+      {/* Context Menu */}
+      {(() => {
+        console.log('🎨 Rendering ContextMenu with props:', {
+          isVisible: contextMenu.visible,
+          position: contextMenu.position,
+          elementType: contextMenu.elementType || 'image',
+          contextMenuState: contextMenu
+        });
+        return (
+          <ContextMenu
+            isVisible={contextMenu.visible}
+            position={contextMenu.position}
+            onClose={closeContextMenu}
+            onAction={handleContextMenuAction}
+            elementType={contextMenu.elementType || 'image'}
+          />
+        );
+      })()}
     </div>
   );
 };

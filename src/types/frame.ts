@@ -47,6 +47,7 @@ export interface ImageElement {
   height: number;
   clipToSlot: boolean;
   backgroundRemoved: boolean;
+  opacity?: number;
 }
 
 export interface StickerElement {
@@ -60,6 +61,7 @@ export interface StickerElement {
   scaleX: number;
   scaleY: number;
   rotation: number;
+  opacity?: number;
 }
 
 export interface TextElement {

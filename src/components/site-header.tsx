@@ -28,12 +28,6 @@ export const SiteHeader = () => {
           >
             {t("header.photoframes")}
           </Link>
-          <Link
-            href="/booth/demo"
-            className="text-gray-600 transition hover:text-gray-900"
-          >
-            {t("header.boothDemo")}
-          </Link>
           <div className="relative flex items-center ml-2 border-l pl-4 border-gray-200">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}

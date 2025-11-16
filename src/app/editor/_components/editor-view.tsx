@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import Link from "next/link";
 import type Konva from "konva";
 import { Download, ImageIcon, Loader2, Share2, Sparkles, Trash, Camera } from "lucide-react";
+import { createPortal } from "react-dom";
 
 import { useLanguage } from "@/contexts/language-context";
 
@@ -43,6 +44,22 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationOverlay, setCelebrationOverlay] = useState<string | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [isProcessingClick, setIsProcessingClick] = useState(false);
+
+  // Get canvas selection from store
+  const canvasSelection = useEditorStore((state) => state.selection);
+
+  // Sync selectedImageId with canvas selection
+  useEffect(() => {
+    if (canvasSelection.kind === 'image' && canvasSelection.id) {
+      console.log('🎯 Canvas selected image:', canvasSelection.id);
+      setSelectedImageId(canvasSelection.id);
+    } else if (canvasSelection.kind !== 'image') {
+      // If user selected something else (text, sticker) or nothing, clear image selection
+      setSelectedImageId(null);
+    }
+  }, [canvasSelection]);
 
   const layout = useEditorStore((state) => state.layout);
   const images = useEditorStore((state) => state.images);
@@ -385,6 +402,76 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             />
           </label>
         </div>
+        {/* Fixed Remove Background Section - Slim & Fully Clickable */}
+        <div
+          className="mb-4 rounded-2xl border border-dashed border-purple-300 bg-purple-50 px-3 py-3 text-sm font-medium transition cursor-pointer select-none hover:border-purple-600 hover:bg-purple-100"
+          onClick={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (isProcessingClick) {
+              console.log('🚫 Click already in progress, ignoring...');
+              return;
+            }
+
+            setIsProcessingClick(true);
+
+            console.log('🔧 Remove background clicked!', {
+              selectedImageId,
+              backgroundProcessingId,
+              imagesLength: images.length
+            });
+
+            try {
+              if (backgroundProcessingId !== null) {
+                console.log('❌ Background processing already in progress!');
+                return;
+              }
+
+              if (images.length === 0) {
+                console.log('❌ No images available!');
+                return;
+              }
+
+              // Auto-select first image if none selected
+              let targetImageId = selectedImageId;
+              if (!targetImageId) {
+                targetImageId = images[0].id;
+                console.log('🎯 Auto-selecting first image:', targetImageId);
+                setSelectedImageId(targetImageId);
+              }
+
+              const selectedImage = images.find(img => img.id === targetImageId);
+              console.log('🔍 Found target image:', selectedImage);
+
+              if (selectedImage) {
+                console.log('🚀 Calling handleRemoveBackground...');
+                await handleRemoveBackground(selectedImage);
+              } else {
+                console.log('❌ Target image not found in images array!');
+              }
+            } finally {
+              setTimeout(() => setIsProcessingClick(false), 1000);
+            }
+          }}
+        >
+          <div className="flex items-center justify-center gap-2">
+            {backgroundProcessingId ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                <span className="text-purple-600 font-medium">Removing Background...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 text-purple-600" />
+                <span className="text-purple-600 font-medium">
+                  Remove Background
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="mt-4 space-y-3">
           {images.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-gray-500">
@@ -394,16 +481,28 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
             images.map((image) => (
               <div
                 key={image.id}
-                className="rounded-2xl border border-gray-200 p-3 text-sm"
+                className={`rounded-2xl border p-3 text-sm transition ${
+                  selectedImageId === image.id
+                    ? "border-purple-300 bg-purple-50"
+                    : "border-gray-200"
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-700">
                     {t("editor.imageId")} {image.id.slice(0, 4)}
+                    {selectedImageId === image.id && (
+                      <span className="ml-2 text-xs text-purple-600 font-semibold">SELECTED</span>
+                    )}
                   </span>
                   <button
                     type="button"
                     className="rounded-full p-1 text-gray-400 hover:bg-slate-100 hover:text-slate-900"
-                    onClick={() => removeImage(image.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🗑️ Delete button clicked for image:', image.id);
+                      removeImage(image.id);
+                    }}
                   >
                     <Trash className="h-4 w-4" />
                   </button>
@@ -431,24 +530,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
                       ))}
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    onClick={() => handleRemoveBackground(image)}
-                    disabled={backgroundProcessingId === image.id}
-                  >
-                    {backgroundProcessingId === image.id ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {t("editor.removingBackground")}
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        {t("editor.removeBackground")}
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
             ))
@@ -572,6 +653,10 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         });
         console.log('🐛 [Upload Debug] Added image:', imageId, file.name);
         console.log('🐛 [Upload Debug] Current images count in store:', images.length + 1);
+
+        // Auto-select the newly uploaded image
+        console.log('🎯 Auto-selecting uploaded image:', imageId);
+        setSelectedImageId(imageId);
       }
     } catch (error) {
       console.error(error);
@@ -653,6 +738,10 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
   };
 
   const handleSaveTemplate = async () => {
+    // Set loading state immediately when button is clicked
+    setSaveState("saving");
+    console.log('🐛 [Save Debug] Save state set to "saving"');
+
     const stage = stageRef.current;
     let nextOverlay = overlayDataUrl;
 
@@ -666,8 +755,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     }
 
     try {
-      setSaveState("saving");
-      console.log('🐛 [Save Debug] Save state set to "saving"');
 
       // Debug: Log the images array before saving
       console.log('🐛 [Save Debug] Images being saved:', images.length, images);
@@ -741,8 +828,60 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
     );
   }, [currentSlug, relativeShareUrl]);
 
+  // Portal loading spinner component
+  const LoadingSpinner = () => {
+    if (typeof window === 'undefined' || saveState !== "saving") return null;
+
+    return createPortal(
+      <div
+        className="fixed inset-0 flex items-center justify-center"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          zIndex: 999999,
+          pointerEvents: 'auto'
+        }}
+      >
+        <div className="flex flex-col items-center gap-6 text-center">
+          {/* Cool loading spinner with multiple rings */}
+          <div className="relative">
+            {/* Outer ring */}
+            <div className="w-24 h-24 border-4 border-white/20 rounded-full animate-spin border-t-white"></div>
+            {/* Middle ring */}
+            <div className="absolute inset-2 w-20 h-20 border-4 border-blue-400/30 rounded-full border-t-blue-400" style={{animation: 'spin 1s linear infinite reverse'}}></div>
+            {/* Inner ring */}
+            <div className="absolute inset-4 w-16 h-16 border-4 border-purple-400/30 rounded-full animate-spin border-t-purple-400"></div>
+            {/* Center dot */}
+            <div className="absolute inset-8 w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-pulse"></div>
+          </div>
+
+          {/* Loading text with animation */}
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white">Saving your photoframe</h2>
+            <div className="flex items-center justify-center gap-1">
+              <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   return (
-    <div className="mx-auto flex w-full max-w-6xl items-stretch gap-6 p-4">
+    <>
+      <LoadingSpinner />
+      <div className="mx-auto flex w-full max-w-6xl items-stretch gap-6 p-4">
       <div className="flex h-[calc(100vh-120px)] w-[320px] flex-col rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
         <div className="flex-1 space-y-6 overflow-y-auto pr-2">
           <div className="flex flex-wrap gap-2">
@@ -854,15 +993,6 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
         </div>
       </div>
 
-      {/* Full-screen loading spinner */}
-      {saveState === "saving" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-900/80 z-[100] backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-16 w-16 animate-spin text-white" />
-            <p className="text-white text-lg font-medium">Saving your photoframe...</p>
-          </div>
-        </div>
-      )}
 
       {/* Celebration popup with falling emojis */}
       {showCelebration && (
@@ -875,7 +1005,8 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
           }}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };
 
@@ -892,40 +1023,28 @@ const FallingEmojis = () => {
   const positiveEmojis = ['🎉', '✨', '🎊', '🥳', '🎈', '🌟', '💫', '🎆', '🎇', '🏆', '👏', '🙌', '💖', '😍', '😊', '🤩', '🔥', '🚀', '🌈', '🦄'];
 
   useEffect(() => {
-    // Generate initial batch of emojis
-    const initialEmojis = Array.from({ length: 50 }, (_, i) => ({
-      id: `emoji-${i}`,
-      emoji: positiveEmojis[Math.floor(Math.random() * positiveEmojis.length)],
-      left: Math.random() * 100,
-      animationDelay: Math.random() * 3000,
-      animationDuration: 3000 + Math.random() * 2000,
-    }));
-
-    setEmojis(initialEmojis);
-
-    // Continue generating emojis for 5 seconds
+    // Continue generating emojis forever until component unmounts
     const interval = setInterval(() => {
-      setEmojis(prev => [
-        ...prev,
-        {
-          id: `emoji-${Date.now()}-${Math.random()}`,
-          emoji: positiveEmojis[Math.floor(Math.random() * positiveEmojis.length)],
-          left: Math.random() * 100,
-          animationDelay: 0,
-          animationDuration: 3000 + Math.random() * 2000,
-        }
-      ]);
-    }, 200);
-
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-    }, 4000);
+      setEmojis(prev => {
+        // Keep only recent emojis to prevent memory issues
+        const recentEmojis = prev.slice(-40);
+        return [
+          ...recentEmojis,
+          {
+            id: `emoji-${Date.now()}-${Math.random()}`,
+            emoji: positiveEmojis[Math.floor(Math.random() * positiveEmojis.length)],
+            left: Math.random() * 100,
+            animationDelay: 0,
+            animationDuration: 3000 + Math.random() * 2000,
+          }
+        ];
+      });
+    }, 300);
 
     return () => {
       clearInterval(interval);
-      clearTimeout(timeout);
     };
-  }, []);
+  }, [positiveEmojis]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[300] overflow-hidden">
@@ -966,61 +1085,71 @@ interface CelebrationOverlayProps {
 }
 
 const CelebrationOverlay = ({ overlayImage, templateSlug, onClose }: CelebrationOverlayProps) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [showPresent, setShowPresent] = useState(false);
+
+  // Trigger present animation after component mounts
+  useEffect(() => {
+    const timer = setTimeout(() => setShowPresent(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center">
+      {/* Dimmed background */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+      {/* Falling emojis */}
       <FallingEmojis />
 
-      <div className="relative flex flex-col items-center justify-center min-h-screen w-full p-8">
-        {/* Celebration Content */}
-        <div className="text-center mb-8 z-10">
-          <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            Congratulations!
-          </h2>
-          <p className="text-xl text-slate-600 mb-8">
-            Your photoframe has been created successfully!
-          </p>
-        </div>
+      {/* Present popup */}
+      <div
+        className={`relative z-10 transform transition-all duration-700 ${
+          showPresent ? 'scale-100 opacity-100' : 'scale-75 opacity-0'
+        }`}
+      >
+        <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md mx-4 text-center border-4 border-yellow-400">
+          {/* Present emoji and title */}
+          <div className="text-6xl mb-4">🎁</div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Congratulations!</h2>
+          <p className="text-slate-600 mb-6">Your photoframe is ready!</p>
 
-        {/* Photoframe - Centered on screen with smooth transition */}
-        {overlayImage && (
-          <div
-            className={`mb-8 flex justify-center z-10 transition-all duration-1000 ${
-              imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
-            }`}
-          >
-            <div className="relative">
-              <img
-                src={overlayImage}
-                alt="Your photoframe"
-                className="max-w-md max-h-[50vh] rounded-3xl shadow-2xl border-8 border-white"
-                style={{
-                  filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.3))'
-                }}
-                onLoad={() => setImageLoaded(true)}
-              />
-              {/* Sparkle effect around the image */}
-              <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400/20 via-pink-400/20 to-purple-400/20 rounded-3xl blur-lg animate-pulse"></div>
+          {/* Photoframe preview */}
+          {overlayImage && (
+            <div className="mb-6">
+              <div
+                className={`transform transition-all duration-1000 delay-300 ${
+                  showPresent ? 'scale-100 opacity-100 rotate-0' : 'scale-75 opacity-0 rotate-12'
+                }`}
+              >
+                <img
+                  src={overlayImage}
+                  alt="Your photoframe"
+                  className="w-full max-w-xs mx-auto rounded-2xl shadow-lg border-4 border-white"
+                  style={{
+                    filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.2))'
+                  }}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Action Buttons */}
-        <div className="z-10 flex gap-4">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 bg-gray-200 text-slate-900 rounded-xl text-lg font-semibold hover:bg-gray-300 transition-all transform hover:scale-105"
-          >
-            Continue Editing
-          </button>
-          <Link
-            href={`/booth/${templateSlug}`}
-            className="px-8 py-3 bg-slate-900 text-white rounded-xl text-lg font-semibold hover:bg-slate-800 transition-all transform hover:scale-105 shadow-xl inline-flex items-center gap-2"
-          >
-            <Camera className="h-5 w-5" />
-            Try PhotoFrame
-          </Link>
+          {/* Action buttons */}
+          <div className="space-y-3">
+            <Link
+              href={`/booth/${templateSlug}`}
+              className="w-full bg-emerald-600 text-white py-3 px-6 rounded-xl text-lg font-semibold hover:bg-emerald-700 transition-all transform hover:scale-105 inline-flex items-center justify-center gap-2"
+            >
+              <Camera className="h-5 w-5" />
+              Try Your PhotoFrame!
+            </Link>
+
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-200 text-slate-700 py-2 px-6 rounded-xl text-sm font-medium hover:bg-gray-300 transition-all"
+            >
+              Continue Editing
+            </button>
+          </div>
         </div>
       </div>
     </div>

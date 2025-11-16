@@ -19,6 +19,7 @@ interface EditableImageProps<T extends EditableElement> {
   onSelect: (kind: "image" | "sticker") => void;
   onChange: (next: Partial<T>) => void;
   nodeName?: string;
+  onContextMenu?: (e: any) => void;
 }
 
 export const EditableImage = <T extends EditableElement>({
@@ -30,6 +31,7 @@ export const EditableImage = <T extends EditableElement>({
   onSelect,
   onChange,
   nodeName,
+  onContextMenu,
 }: EditableImageProps<T>) => {
   const { image } = useImageElement(element.dataUrl);
   const shapeRef = useRef<Konva.Image>(null);
@@ -75,9 +77,11 @@ export const EditableImage = <T extends EditableElement>({
       scaleX={element.scaleX}
       scaleY={element.scaleY}
       rotation={element.rotation}
+      opacity={element.opacity ?? 1}
       draggable={draggable}
       onClick={() => onSelect(kind)}
       onTap={() => onSelect(kind)}
+      onContextMenu={onContextMenu}
       onDragEnd={handleDragEnd}
       onTransformEnd={handleTransformEnd}
       stroke={isSelected ? "#2563eb" : undefined}

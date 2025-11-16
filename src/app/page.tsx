@@ -29,12 +29,6 @@ export default function Home() {
           >
             {t("home.browseFrames")}
           </Link>
-          <Link
-            className="rounded-full bg-white px-5 py-3 font-medium text-slate-900 shadow-sm ring-1 ring-slate-200 transition hover:ring-slate-300"
-            href="/photoframes"
-          >
-            {t("home.exploreBooth")}
-          </Link>
         </div>
       </section>
 
