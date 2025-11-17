@@ -21,8 +21,9 @@ export const exportStageWithTransparentSlots = (
   }));
 
   try {
+    // Use white background instead of transparent for photo placeholders
     slotNodes.forEach((node) => {
-      node.setAttr("fill", "rgba(0,0,0,0)");
+      node.setAttr("fill", "#ffffff");
     });
 
     overlayHiddenTargets.forEach((node) => {
