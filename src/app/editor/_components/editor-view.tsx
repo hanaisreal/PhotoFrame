@@ -924,15 +924,15 @@ const CelebrationOverlay = ({ overlayImage, templateSlug, shareUrl, onClose }: C
           showPresent ? 'scale-100 opacity-100' : 'scale-75 opacity-0'
         }`}
       >
-        <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md mx-4 text-center border-4 border-yellow-400">
+        <div className="bg-white rounded-2xl p-4 shadow-2xl max-w-sm mx-4 text-center border-2 border-yellow-400">
           {/* Present emoji and title */}
-          <div className="text-6xl mb-4">🎁</div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Congratulations!</h2>
-          <p className="text-slate-600 mb-6">Your photoframe is ready!</p>
+          <div className="text-4xl mb-2">🎁</div>
+          <h2 className="text-lg font-bold text-slate-900 mb-1">Congratulations!</h2>
+          <p className="text-slate-600 mb-3 text-sm">Your photoframe is ready!</p>
 
           {/* Photoframe preview */}
           {overlayImage && (
-            <div className="mb-6">
+            <div className="mb-3">
               <div
                 className={`transform transition-all duration-1000 delay-300 ${
                   showPresent ? 'scale-100 opacity-100 rotate-0' : 'scale-75 opacity-0 rotate-12'
@@ -941,9 +941,9 @@ const CelebrationOverlay = ({ overlayImage, templateSlug, shareUrl, onClose }: C
                 <img
                   src={overlayImage}
                   alt="Your photoframe"
-                  className="w-full max-w-xs mx-auto rounded-2xl shadow-lg border-4 border-white"
+                  className="w-full max-w-40 mx-auto rounded-lg shadow-lg border-2 border-white"
                   style={{
-                    filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.2))'
+                    filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.2))'
                   }}
                 />
               </div>
@@ -951,12 +951,12 @@ const CelebrationOverlay = ({ overlayImage, templateSlug, shareUrl, onClose }: C
           )}
 
           {/* Direct share link */}
-          <div className="mb-4 rounded-2xl border border-dashed border-yellow-300 bg-yellow-50 p-4 text-left">
-            <p className="text-sm font-semibold text-yellow-900">Photoframe Link</p>
-            <p className="mt-1 text-xs text-yellow-800 break-all">{shareUrl}</p>
+          <div className="mb-3 rounded-lg border border-dashed border-yellow-300 bg-yellow-50 p-3 text-left">
+            <p className="text-xs font-semibold text-yellow-900">Photoframe Link</p>
+            <p className="mt-1 text-xs text-yellow-800 break-all line-clamp-2">{shareUrl}</p>
             <button
               type="button"
-              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-yellow-400/80 px-3 py-1.5 text-xs font-semibold text-yellow-900 transition hover:bg-yellow-400"
+              className="mt-2 inline-flex items-center gap-1 rounded-md bg-yellow-400/80 px-2 py-1 text-xs font-semibold text-yellow-900 transition hover:bg-yellow-400"
               onClick={() => {
                 navigator.clipboard.writeText(shareUrl).then(() => {
                   setCopied(true);
@@ -969,18 +969,18 @@ const CelebrationOverlay = ({ overlayImage, templateSlug, shareUrl, onClose }: C
           </div>
 
           {/* Action buttons */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Link
               href={shareUrl || `/booth/${templateSlug}`}
-              className="w-full bg-emerald-600 text-white py-3 px-6 rounded-xl text-lg font-semibold hover:bg-emerald-700 transition-all transform hover:scale-105 inline-flex items-center justify-center gap-2"
+              className="w-full bg-emerald-600 text-white py-2.5 px-4 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all transform hover:scale-105 inline-flex items-center justify-center gap-2"
             >
-              <Camera className="h-5 w-5" />
+              <Camera className="h-4 w-4" />
               Let's take photos right now!
             </Link>
 
             <button
               onClick={onClose}
-              className="w-full bg-gray-200 text-slate-700 py-2 px-6 rounded-xl text-sm font-medium hover:bg-gray-300 transition-all"
+              className="w-full bg-gray-200 text-slate-700 py-2 px-4 rounded-lg text-xs font-medium hover:bg-gray-300 transition-all"
             >
               Continue Editing
             </button>
