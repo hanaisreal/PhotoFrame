@@ -168,8 +168,10 @@ if __name__ == '__main__':
 
     # Initialize rembg
     if init_rembg():
-        logger.info("🚀 Starting Flask server on http://localhost:5001")
-        app.run(host='0.0.0.0', port=5001, debug=False)
+        import os
+        port = int(os.environ.get('PORT', 5001))
+        logger.info(f"🚀 Starting Flask server on port {port}")
+        app.run(host='0.0.0.0', port=port, debug=False)
     else:
         logger.error("❌ Failed to start service - rembg initialization failed")
         exit(1)
