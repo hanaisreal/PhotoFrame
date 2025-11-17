@@ -106,6 +106,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
   const [slotAssignments, setSlotAssignments] = useState<Record<string, number | null>>({});
   const [finalImage, setFinalImage] = useState<string | null>(null);
   const [isComposing, setIsComposing] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [hasCameraAccess, setHasCameraAccess] = useState(false);
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
   const [arrangementError, setArrangementError] = useState<string | null>(null);
@@ -128,6 +129,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
     setStreamError(null);
     setFinalImage(null);
     setIsComposing(false);
+    setLoadingStep(0);
     setArrangementError(null);
     setCurrentShotIndex(0);
     setActiveSlotId(slots[0]?.id ?? null);
@@ -1073,6 +1075,20 @@ export const BoothView = ({ template }: BoothViewProps) => {
 
   const composeFinalImage = useCallback(async () => {
     setIsComposing(true);
+    setLoadingStep(0);
+
+    // Loading step 1: Structuring
+    setLoadingStep(1);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Loading step 2: Processing
+    setLoadingStep(2);
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    // Loading step 3: Finalizing
+    setLoadingStep(3);
+    await new Promise(resolve => setTimeout(resolve, 800));
+
     try {
       const canvas = document.createElement("canvas");
       canvas.width = template.layout.canvas.width;
@@ -1367,6 +1383,285 @@ export const BoothView = ({ template }: BoothViewProps) => {
   })();
 
   if (stage === "arrange") {
+    // Show loading screen during composition
+    if (isComposing && !finalImage) {
+      const loadingMessages = [
+        "Preparing...",
+        "Structuring your masterpiece...",
+        "Processing photos...",
+        "Adding final touches..."
+      ];
+
+      return (
+        <BoothAppShell
+          canvasRef={canvasRef}
+          canvasWidth={template.layout.canvas.width}
+          canvasHeight={template.layout.canvas.height}
+        >
+          {/* Beautiful gradient background */}
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+            <div className="max-w-md mx-auto text-center px-6">
+              {/* Floating card */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-10 shadow-xl ring-1 ring-white/20 border border-white/30">
+                {/* Animated loader */}
+                <div className="relative mx-auto w-20 h-20 mb-8">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-slate-200 to-slate-300"></div>
+                  <div className="absolute inset-1 rounded-full bg-white"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-transparent bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-border animate-spin">
+                    <div className="absolute inset-1 rounded-full bg-white"></div>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-slate-900 to-slate-700 opacity-20 animate-pulse"></div>
+                  </div>
+                </div>
+
+                {/* Animated title */}
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 bg-clip-text text-transparent mb-6">
+                  Creating Magic ✨
+                </h2>
+
+                {/* Smooth message transitions */}
+                <div className="relative h-8 mb-8 overflow-hidden">
+                  {loadingMessages.map((message, index) => (
+                    <p
+                      key={index}
+                      className={`absolute inset-x-0 text-lg font-medium text-slate-600 transition-all duration-700 ease-in-out ${
+                        index === loadingStep
+                          ? 'opacity-100 translate-y-0'
+                          : index < loadingStep
+                          ? 'opacity-0 -translate-y-8'
+                          : 'opacity-0 translate-y-8'
+                      }`}
+                    >
+                      {message}
+                    </p>
+                  ))}
+                </div>
+
+                {/* Elegant progress bar */}
+                <div className="w-full bg-gradient-to-r from-slate-100 to-slate-200 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-full transition-all duration-1000 ease-out shadow-sm"
+                    style={{ width: `${(loadingStep / 3) * 100}%` }}
+                  >
+                    <div className="h-full bg-gradient-to-r from-white/30 to-transparent rounded-full"></div>
+                  </div>
+                </div>
+
+                {/* Step indicators */}
+                <div className="flex justify-center space-x-2 mt-6">
+                  {[1, 2, 3].map((step) => (
+                    <div
+                      key={step}
+                      className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                        step <= loadingStep
+                          ? 'bg-slate-900 scale-110'
+                          : 'bg-slate-300 scale-100'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </BoothAppShell>
+      );
+    }
+
+    // Show dedicated result page when final image is ready
+    if (finalImage) {
+      return (
+        <BoothAppShell
+          canvasRef={canvasRef}
+          canvasWidth={template.layout.canvas.width}
+          canvasHeight={template.layout.canvas.height}
+        >
+          {/* Professional heart celebration animation */}
+          <style jsx>{`
+            @keyframes floatFromCorners {
+              0% {
+                opacity: 0;
+                transform: scale(0.3) rotate(0deg);
+              }
+              20% {
+                opacity: 1;
+                transform: scale(1) rotate(90deg);
+              }
+              80% {
+                opacity: 1;
+                transform: scale(1.1) rotate(270deg);
+              }
+              100% {
+                opacity: 0;
+                transform: scale(0.2) rotate(360deg);
+              }
+            }
+            @keyframes floatDiagonal {
+              0% {
+                opacity: 0;
+                transform: scale(0.5);
+              }
+              15% {
+                opacity: 1;
+              }
+              85% {
+                opacity: 1;
+              }
+              100% {
+                opacity: 0;
+                transform: scale(1.3);
+              }
+            }
+            @keyframes sparkle {
+              0%, 100% {
+                opacity: 0;
+                transform: scale(0) rotate(0deg);
+              }
+              50% {
+                opacity: 1;
+                transform: scale(1.2) rotate(180deg);
+              }
+            }
+            .heart-corner {
+              animation: floatFromCorners 3s ease-in-out forwards;
+            }
+            .heart-diagonal {
+              animation: floatDiagonal 2.5s ease-out forwards;
+            }
+            .heart-sparkle {
+              animation: sparkle 1.5s ease-in-out forwards;
+            }
+          `}</style>
+          <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
+            {/* Hearts from corners moving to center */}
+            {[...Array(8)].map((_, i) => {
+              const corner = i % 4;
+              const isSecond = i >= 4;
+              let startX = 0, startY = 0, endX = 50, endY = 50;
+
+              switch(corner) {
+                case 0: startX = 5; startY = 5; break;   // top-left
+                case 1: startX = 95; startY = 5; break;  // top-right
+                case 2: startX = 95; startY = 95; break; // bottom-right
+                case 3: startX = 5; startY = 95; break;  // bottom-left
+              }
+
+              return (
+                <div
+                  key={`corner-${i}`}
+                  className="absolute heart-corner"
+                  style={{
+                    left: `${startX}%`,
+                    top: `${startY}%`,
+                    '--end-x': `${endX}%`,
+                    '--end-y': `${endY}%`,
+                    animationDelay: `${isSecond ? 1 : 0}s`,
+                    fontSize: `${20 + Math.random() * 16}px`,
+                    transform: `translate(-50%, -50%) translate(calc((50vw - ${startX}vw) * var(--progress, 0)), calc((50vh - ${startY}vh) * var(--progress, 0)))`,
+                  }}
+                >
+                  ❤️
+                </div>
+              );
+            })}
+
+            {/* Diagonal hearts */}
+            {[...Array(12)].map((_, i) => (
+              <div
+                key={`diagonal-${i}`}
+                className="absolute heart-diagonal"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  fontSize: `${18 + Math.random() * 12}px`,
+                }}
+              >
+                💖
+              </div>
+            ))}
+
+            {/* Center burst sparkles */}
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={`sparkle-${i}`}
+                className="absolute heart-sparkle"
+                style={{
+                  left: `${45 + Math.random() * 10}%`,
+                  top: `${45 + Math.random() * 10}%`,
+                  animationDelay: `${0.5 + Math.random() * 1}s`,
+                  fontSize: `${22 + Math.random() * 8}px`,
+                }}
+              >
+                ✨
+              </div>
+            ))}
+
+            {/* Floating hearts around the image */}
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={`float-${i}`}
+                className="absolute animate-bounce"
+                style={{
+                  left: `${20 + Math.random() * 60}%`,
+                  top: `${20 + Math.random() * 60}%`,
+                  animationDelay: `${Math.random() * 3}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`,
+                  fontSize: `${16 + Math.random() * 8}px`,
+                }}
+              >
+                💕
+              </div>
+            ))}
+          </div>
+
+          <div className="max-w-2xl mx-auto text-center relative z-10">
+            <h1 className="text-2xl font-bold text-slate-900 mb-8">
+              {t("booth.finalResult")}
+            </h1>
+
+            <div className="bg-white rounded-3xl p-8 shadow-sm ring-1 ring-slate-100">
+              <div className="max-w-md mx-auto">
+                <img
+                  src={finalImage}
+                  alt={t("booth.finalResult")}
+                  className="w-full h-auto rounded-2xl border border-slate-200 shadow-lg"
+                  style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                />
+              </div>
+
+              <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  onClick={handleDownload}
+                >
+                  <Download className="h-4 w-4" />
+                  {t("booth.downloadPNG")}
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => {
+                    setFinalImage(null);
+                    setStatus("waiting");
+                    setStage("capture");
+                    setCapturedShots([]);
+                    setSlotAssignments({});
+                    setIsComposing(false);
+                    setLoadingStep(0);
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {t("booth.takeAgain") || "Take Again"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </BoothAppShell>
+      );
+    }
+
     const canvasWidth = template.layout.canvas.width;
     const canvasHeight = template.layout.canvas.height;
     const canvasAspectRatio = canvasWidth / canvasHeight;
@@ -1578,16 +1873,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 <RotateCcw className="h-4 w-4" />
                 {t("booth.reshoot")}
               </button>
-              {finalImage ? (
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-slate-900 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-900 hover:text-white"
-                  onClick={handleDownload}
-                >
-                  <Download className="h-4 w-4" />
-                  {t("booth.downloadPNG")}
-                </button>
-              ) : null}
             </div>
 
             {isComposing ? (
@@ -1597,18 +1882,6 @@ export const BoothView = ({ template }: BoothViewProps) => {
               </div>
             ) : null}
 
-            {finalImage ? (
-              <div className="mt-5">
-                <h3 className="text-sm font-semibold text-slate-700">
-                  {t("booth.finalResult")}
-                </h3>
-                <img
-                  src={finalImage}
-                  alt={t("booth.finalResult")}
-                  className="mt-2 w-full rounded-2xl border border-slate-200"
-                />
-              </div>
-            ) : null}
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
