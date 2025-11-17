@@ -116,6 +116,19 @@ export const BoothView = ({ template }: BoothViewProps) => {
   const [isVideoReady, setIsVideoReady] = useState(false);
 
   const slots = useMemo(() => template.layout.slots, [template.layout.slots]);
+  const slotTemplateImages = useMemo(() => {
+    const map = new Map<string, ImageElement[]>();
+    template.images.forEach((image) => {
+      if (!image.slotId || image.isVisible === false) {
+        return;
+      }
+      if (!map.has(image.slotId)) {
+        map.set(image.slotId, []);
+      }
+      map.get(image.slotId)!.push(image);
+    });
+    return map;
+  }, [template.images]);
   const resetSessionState = useCallback(() => {
     setCapturedShots(Array(captureCount).fill(""));
     setSlotAssignments(
@@ -1807,6 +1820,54 @@ export const BoothView = ({ template }: BoothViewProps) => {
                           {t("booth.dragToPlace")}
                         </span>
                       )}
+                    </div>
+                  );
+                })}
+
+                {/* Render template images assigned to slots as overlays (clipped) */}
+                {slots.map((slot) => {
+                  const slotImages = (slotTemplateImages.get(slot.id) ?? []).slice().sort(
+                    (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+                  );
+                  if (!slotImages.length) {
+                    return null;
+                  }
+                  const slotLeft = slot.x * slotScaleX;
+                  const slotTop = slot.y * slotScaleY;
+                  const slotWidth = slot.width * slotScaleX;
+                  const slotHeight = slot.height * slotScaleY;
+                  const slotCornerRadiusPx =
+                    template.layout.frame.cornerRadius * slotScaleX;
+                  return (
+                    <div
+                      key={`slot-overlay-${slot.id}`}
+                      className="absolute pointer-events-none z-[55] overflow-hidden"
+                      style={{
+                        left: `${slotLeft}px`,
+                        top: `${slotTop}px`,
+                        width: `${slotWidth}px`,
+                        height: `${slotHeight}px`,
+                        borderRadius: `${slotCornerRadiusPx}px`,
+                      }}
+                    >
+                      <div className="relative h-full w-full">
+                        {slotImages.map((image) => (
+                          <img
+                            key={image.id}
+                            src={image.dataUrl}
+                            alt="Template slot element"
+                            className="absolute"
+                            style={{
+                              left: `${image.x * slotScaleX}px`,
+                              top: `${image.y * slotScaleY}px`,
+                              width: `${image.width * image.scaleX * slotScaleX}px`,
+                              height: `${image.height * image.scaleY * slotScaleY}px`,
+                              transform: `rotate(${image.rotation}deg)`,
+                              opacity: image.opacity ?? 1,
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   );
                 })}

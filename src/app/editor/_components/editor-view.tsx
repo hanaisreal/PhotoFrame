@@ -10,7 +10,6 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "@/contexts/language-context";
 
 import { EditorCanvas } from "@/components/editor/editor-canvas";
-import { persistTemplate } from "@/app/editor/actions";
 import { createTemplateSlug } from "@/lib/slug";
 import { readFileAsDataUrl, getImageDimensions } from "@/lib/utils/image";
 import { exportStageWithTransparentSlots } from "@/lib/utils/stage";
@@ -634,7 +633,20 @@ export const EditorView = ({ initialTemplate }: EditorViewProps) => {
       };
 
       console.log('🐛 [Save Debug] Full payload:', payload);
-      const result = await persistTemplate(payload);
+      const response = await fetch("/api/templates/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as { slug?: string; error?: string };
+
+      if (!response.ok || !result.slug) {
+        throw new Error(result.error ?? "Failed to save template");
+      }
+
       setCurrentSlug(result.slug);
       setSaveState("saved");
 
