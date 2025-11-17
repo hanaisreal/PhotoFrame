@@ -183,6 +183,13 @@ export const useEditorStore = create<EditorState & EditorActions>(
         // Process the image client-side
         const processedImageDataUrl = await removeBackgroundClient(image.dataUrl);
 
+        const slot = image.slotId
+          ? state.layout.slots.find((item) => item.id === image.slotId) ?? null
+          : null;
+
+        const absoluteX = slot ? slot.x + image.x : image.x;
+        const absoluteY = slot ? slot.y + image.y : image.y;
+
         set((state) => ({
           images: state.images.map((img) =>
             img.id === id
@@ -190,6 +197,9 @@ export const useEditorStore = create<EditorState & EditorActions>(
                   ...img,
                   dataUrl: processedImageDataUrl,
                   slotId: null, // Convert to floating image for easier manipulation
+                  clipToSlot: false,
+                  x: absoluteX,
+                  y: absoluteY,
                   backgroundRemoved: true,
                 }
               : img,
