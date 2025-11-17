@@ -1553,12 +1553,9 @@ export const BoothView = ({ template }: BoothViewProps) => {
                   style={{
                     left: `${startX}%`,
                     top: `${startY}%`,
-                    '--end-x': `${endX}%`,
-                    '--end-y': `${endY}%`,
                     animationDelay: `${isSecond ? 1 : 0}s`,
                     fontSize: `${20 + Math.random() * 16}px`,
-                    transform: `translate(-50%, -50%) translate(calc((50vw - ${startX}vw) * var(--progress, 0)), calc((50vh - ${startY}vh) * var(--progress, 0)))`,
-                  }}
+                  } as React.CSSProperties}
                 >
                   ❤️
                 </div>
