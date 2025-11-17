@@ -14,12 +14,18 @@ export const removeBackgroundBackend = async (imageData: string | Blob | File): 
   try {
     console.log('Using Python rembg backend service...');
 
-    // Try local service first, then fallback to deployed services
+    // Try deployed services first for production, local for development
     const serviceUrls = [
-      'http://localhost:5001',  // Local development
-      process.env.NEXT_PUBLIC_VERCEL_BG_URL || 'https://your-bg-service.vercel.app',  // Vercel deployment
-      process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app'  // Railway fallback
-    ];
+      process.env.NEXT_PUBLIC_VERCEL_BG_URL || 'https://python-bg-vercel-7vzswpo2d-hanaisreals-projects.vercel.app',  // Vercel deployment (primary)
+      process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app',  // Railway fallback
+      'http://localhost:5001'  // Local development (last resort)
+    ].filter(url => {
+      // Filter out localhost in production
+      if (process.env.NODE_ENV === 'production' && url.includes('localhost')) {
+        return false;
+      }
+      return true;
+    });
 
     let lastError: Error | null = null;
 
@@ -127,10 +133,16 @@ export const isBackendServiceAvailable = async (): Promise<{
   models?: Array<{ name: string; description: string; size: string }>;
 }> => {
   const serviceUrls = [
-    'http://localhost:5001',  // Local development
-    process.env.NEXT_PUBLIC_VERCEL_BG_URL || 'https://your-bg-service.vercel.app',  // Vercel deployment
-    process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app'  // Railway fallback
-  ];
+    process.env.NEXT_PUBLIC_VERCEL_BG_URL || 'https://python-bg-vercel-7vzswpo2d-hanaisreals-projects.vercel.app',  // Vercel deployment (primary)
+    process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app',  // Railway fallback
+    'http://localhost:5001'  // Local development (last resort)
+  ].filter(url => {
+    // Filter out localhost in production
+    if (process.env.NODE_ENV === 'production' && url.includes('localhost')) {
+      return false;
+    }
+    return true;
+  });
 
   for (const baseUrl of serviceUrls) {
     try {
