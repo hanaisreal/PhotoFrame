@@ -16,7 +16,7 @@ export const removeBackgroundBackend = async (imageData: string | Blob | File): 
 
     // Try Railway first, then fallbacks
     const serviceUrls = [
-      process.env.BACKGROUND_REMOVAL_SERVICE_URL,  // Railway deployment (primary)
+      process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app',  // Railway deployment (primary)
       'http://localhost:5001'  // Local development (fallback)
     ].filter((url): url is string => Boolean(url)).filter(url => {
       // Filter out localhost in production
