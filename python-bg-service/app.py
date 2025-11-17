@@ -27,7 +27,7 @@ def init_rembg():
     global bg_session
     try:
         logger.info("Initializing rembg session...")
-        bg_session = rembg.new_session('u2net')
+        bg_session = rembg.new_session('u2netp')  # Lighter model (4.7MB vs 176MB)
         logger.info("✅ rembg session initialized successfully")
         return True
     except Exception as e:
