@@ -653,17 +653,21 @@ export const BoothView = ({ template }: BoothViewProps) => {
         destHeight: slot.height
       });
 
+      // Apply horizontal flip for captured photo
+      ctx.save();
+      ctx.scale(-1, 1);
       ctx.drawImage(
         video,
         sx,
         sy,
         sourceWidth,
         sourceHeight,
-        0,
+        -slot.width,
         0,
         slot.width,
         slot.height,
       );
+      ctx.restore();
 
       // Check if canvas actually contains image data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -703,7 +707,10 @@ export const BoothView = ({ template }: BoothViewProps) => {
     ctx.save();
     ctx.fillStyle = template.layout.frame.backgroundColor;
     ctx.fillRect(0, 0, fallbackWidth, fallbackHeight);
-    ctx.drawImage(video, dx, dy, drawWidth, drawHeight);
+
+    // Apply horizontal flip for captured photo
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -dx - drawWidth, dy, drawWidth, drawHeight);
     ctx.restore();
 
     return canvas.toDataURL("image/png");
@@ -1693,7 +1700,8 @@ export const BoothView = ({ template }: BoothViewProps) => {
               onPlaying={() => console.log('🎥 Video playing during countdown')}
               style={{
                 visibility: 'visible',
-                opacity: 1
+                opacity: 1,
+                transform: 'scaleX(-1)' // Flip camera preview horizontally
               }}
             />
             {/** Permission overlay */}
