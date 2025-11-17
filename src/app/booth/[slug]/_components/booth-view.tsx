@@ -1477,180 +1477,88 @@ export const BoothView = ({ template }: BoothViewProps) => {
           canvasWidth={template.layout.canvas.width}
           canvasHeight={template.layout.canvas.height}
         >
-          {/* Professional heart celebration animation */}
+          {/* Subtle celebration animation */}
           <style jsx>{`
-            @keyframes floatFromCorners {
-              0% {
-                opacity: 0;
-                transform: scale(0.3) rotate(0deg);
-              }
-              20% {
-                opacity: 1;
-                transform: scale(1) rotate(90deg);
-              }
-              80% {
-                opacity: 1;
-                transform: scale(1.1) rotate(270deg);
-              }
-              100% {
-                opacity: 0;
-                transform: scale(0.2) rotate(360deg);
-              }
-            }
-            @keyframes floatDiagonal {
-              0% {
-                opacity: 0;
-                transform: scale(0.5);
-              }
-              15% {
-                opacity: 1;
-              }
-              85% {
-                opacity: 1;
-              }
-              100% {
-                opacity: 0;
-                transform: scale(1.3);
-              }
-            }
-            @keyframes sparkle {
+            @keyframes gentleFloat {
               0%, 100% {
-                opacity: 0;
-                transform: scale(0) rotate(0deg);
+                opacity: 0.6;
+                transform: translateY(0px) scale(1);
               }
               50% {
                 opacity: 1;
-                transform: scale(1.2) rotate(180deg);
+                transform: translateY(-10px) scale(1.1);
               }
             }
-            .heart-corner {
-              animation: floatFromCorners 3s ease-in-out forwards;
-            }
-            .heart-diagonal {
-              animation: floatDiagonal 2.5s ease-out forwards;
-            }
-            .heart-sparkle {
-              animation: sparkle 1.5s ease-in-out forwards;
+            .celebration-emoji {
+              animation: gentleFloat 2s ease-in-out infinite;
             }
           `}</style>
-          <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
-            {/* Hearts from corners moving to center */}
-            {[...Array(8)].map((_, i) => {
-              const corner = i % 4;
-              const isSecond = i >= 4;
-              let startX = 0, startY = 0, endX = 50, endY = 50;
 
-              switch(corner) {
-                case 0: startX = 5; startY = 5; break;   // top-left
-                case 1: startX = 95; startY = 5; break;  // top-right
-                case 2: startX = 95; startY = 95; break; // bottom-right
-                case 3: startX = 5; startY = 95; break;  // bottom-left
-              }
-
-              return (
-                <div
-                  key={`corner-${i}`}
-                  className="absolute heart-corner"
-                  style={{
-                    left: `${startX}%`,
-                    top: `${startY}%`,
-                    animationDelay: `${isSecond ? 1 : 0}s`,
-                    fontSize: `${20 + Math.random() * 16}px`,
-                  } as React.CSSProperties}
-                >
-                  ❤️
-                </div>
-              );
-            })}
-
-            {/* Diagonal hearts */}
-            {[...Array(12)].map((_, i) => (
-              <div
-                key={`diagonal-${i}`}
-                className="absolute heart-diagonal"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 2}s`,
-                  fontSize: `${18 + Math.random() * 12}px`,
-                }}
-              >
-                💖
-              </div>
-            ))}
-
-            {/* Center burst sparkles */}
+          {/* Minimal floating emojis */}
+          <div className="fixed inset-0 pointer-events-none z-10 overflow-hidden">
             {[...Array(6)].map((_, i) => (
               <div
-                key={`sparkle-${i}`}
-                className="absolute heart-sparkle"
+                key={`emoji-${i}`}
+                className="absolute celebration-emoji text-2xl"
                 style={{
-                  left: `${45 + Math.random() * 10}%`,
-                  top: `${45 + Math.random() * 10}%`,
-                  animationDelay: `${0.5 + Math.random() * 1}s`,
-                  fontSize: `${22 + Math.random() * 8}px`,
+                  left: `${15 + i * 15}%`,
+                  top: `${10 + (i % 3) * 30}%`,
+                  animationDelay: `${i * 0.3}s`,
                 }}
               >
-                ✨
-              </div>
-            ))}
-
-            {/* Floating hearts around the image */}
-            {[...Array(8)].map((_, i) => (
-              <div
-                key={`float-${i}`}
-                className="absolute animate-bounce"
-                style={{
-                  left: `${20 + Math.random() * 60}%`,
-                  top: `${20 + Math.random() * 60}%`,
-                  animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${2 + Math.random() * 2}s`,
-                  fontSize: `${16 + Math.random() * 8}px`,
-                }}
-              >
-                💕
+                {['🎉', '✨', '🎊', '🌟', '💫', '🎈'][i]}
               </div>
             ))}
           </div>
 
-          <div className="max-w-lg mx-auto text-center relative z-10 px-4">
-            <h1 className="text-xl font-bold text-slate-900 mb-4">
-              {t("booth.finalResult")}
-            </h1>
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <div className="w-full max-w-md mx-auto">
+              {/* Success message */}
+              <div className="text-center mb-6">
+                <div className="text-4xl mb-3">🎉</div>
+                <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                  Perfect!
+                </h1>
+                <p className="text-slate-600">
+                  Your photo is ready to download
+                </p>
+              </div>
 
-            <div className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-slate-100">
-              <div className="max-w-sm mx-auto">
+              {/* Clean image container */}
+              <div className="bg-white rounded-2xl p-6 shadow-lg mb-6">
                 <img
                   src={finalImage}
-                  alt={t("booth.finalResult")}
-                  className="w-full h-auto rounded-xl border border-slate-200 shadow-lg"
-                  style={{ maxHeight: '50vh', objectFit: 'contain' }}
+                  alt="Your final photo"
+                  className="w-full h-auto rounded-xl shadow-md"
+                  style={{ maxHeight: '60vh', objectFit: 'contain' }}
                 />
               </div>
 
-              <div className="mt-4 flex flex-col sm:flex-row justify-center gap-2">
+              {/* Clean action buttons */}
+              <div className="space-y-3">
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="w-full flex items-center justify-center gap-3 bg-slate-900 text-white py-4 px-6 rounded-xl text-base font-semibold hover:bg-slate-800 transition-colors shadow-lg"
                   onClick={handleDownload}
                 >
-                  <Download className="h-4 w-4" />
-                  {t("booth.downloadPNG")}
+                  <Download className="h-5 w-5" />
+                  Download Photo
                 </button>
+
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  className="w-full flex items-center justify-center gap-3 bg-blue-600 text-white py-4 px-6 rounded-xl text-base font-semibold hover:bg-blue-700 transition-colors shadow-lg"
                   onClick={() => {
-                    // Navigate to editor with current template
                     window.location.href = `/editor?slug=${template.slug}`;
                   }}
                 >
-                  <Edit className="h-4 w-4" />
-                  {t("booth.editFrame") || "Edit Frame"}
+                  <Edit className="h-5 w-5" />
+                  Edit Frame
                 </button>
+
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="w-full flex items-center justify-center gap-3 bg-slate-100 text-slate-700 py-4 px-6 rounded-xl text-base font-semibold hover:bg-slate-200 transition-colors"
                   onClick={() => {
                     setFinalImage(null);
                     setStatus("waiting");
@@ -1661,8 +1569,8 @@ export const BoothView = ({ template }: BoothViewProps) => {
                     setLoadingStep(0);
                   }}
                 >
-                  <RotateCcw className="h-4 w-4" />
-                  {t("booth.takeAgain") || "Take Again"}
+                  <RotateCcw className="h-5 w-5" />
+                  Take New Photos
                 </button>
               </div>
             </div>
