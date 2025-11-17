@@ -1109,25 +1109,33 @@ export const BoothView = ({ template }: BoothViewProps) => {
       );
 
       // 1. Draw stickers first (behind photos)
-      await Promise.all(
-        template.stickers.map(async (sticker) => {
-          const image = await loadImage(sticker.dataUrl, t);
-          ctx.save();
-          ctx.translate(sticker.x + (sticker.width * sticker.scaleX) / 2, sticker.y + (sticker.height * sticker.scaleY) / 2);
-          ctx.rotate((sticker.rotation * Math.PI) / 180);
-          ctx.drawImage(
-            image,
-            -(sticker.width * sticker.scaleX) / 2,
-            -(sticker.height * sticker.scaleY) / 2,
-            sticker.width * sticker.scaleX,
-            sticker.height * sticker.scaleY
-          );
-          ctx.restore();
-        })
-      );
+      const sortedStickers = [...template.stickers]
+        .filter((sticker) => sticker.isVisible ?? true)
+        .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+
+      for (const sticker of sortedStickers) {
+        const image = await loadImage(sticker.dataUrl, t);
+        ctx.save();
+        ctx.translate(
+          sticker.x + (sticker.width * sticker.scaleX) / 2,
+          sticker.y + (sticker.height * sticker.scaleY) / 2,
+        );
+        ctx.rotate((sticker.rotation * Math.PI) / 180);
+        ctx.globalAlpha = sticker.opacity ?? 1;
+        ctx.drawImage(
+          image,
+          -(sticker.width * sticker.scaleX) / 2,
+          -(sticker.height * sticker.scaleY) / 2,
+          sticker.width * sticker.scaleX,
+          sticker.height * sticker.scaleY,
+        );
+        ctx.restore();
+      }
 
       // 2. Draw text elements from template data
-      template.texts?.forEach((text) => {
+      template.texts
+        ?.filter((text) => text.isVisible ?? true)
+        .forEach((text) => {
         ctx.save();
         ctx.translate(text.x + text.width / 2, text.y);
         ctx.rotate((text.rotation * Math.PI) / 180);
@@ -1222,27 +1230,29 @@ export const BoothView = ({ template }: BoothViewProps) => {
       }
 
       // 5. Draw floating images from template data (background-removed images, etc.) - ON TOP of slot photos
-      await Promise.all(
-        template.images
-          .filter((img) => !img.slotId && (img.isVisible ?? true))
-          .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
-          .map(async (image) => {
-            console.log(`🖼️ Drawing floating template image ${image.id} at position (${image.x}, ${image.y})`);
-            const img = await loadImage(image.dataUrl, t);
-            ctx.save();
-            ctx.translate(image.x + (image.width * image.scaleX) / 2, image.y + (image.height * image.scaleY) / 2);
-            ctx.rotate((image.rotation * Math.PI) / 180);
-            ctx.globalAlpha = image.opacity ?? 1;
-            ctx.drawImage(
-              img,
-              -(image.width * image.scaleX) / 2,
-              -(image.height * image.scaleY) / 2,
-              image.width * image.scaleX,
-              image.height * image.scaleY
-            );
-            ctx.restore();
-          })
-      );
+      const floatingImages = template.images
+        .filter((img) => !img.slotId && (img.isVisible ?? true))
+        .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+
+      for (const image of floatingImages) {
+        console.log(`🖼️ Drawing floating template image ${image.id} at position (${image.x}, ${image.y})`);
+        const img = await loadImage(image.dataUrl, t);
+        ctx.save();
+        ctx.translate(
+          image.x + (image.width * image.scaleX) / 2,
+          image.y + (image.height * image.scaleY) / 2,
+        );
+        ctx.rotate((image.rotation * Math.PI) / 180);
+        ctx.globalAlpha = image.opacity ?? 1;
+        ctx.drawImage(
+          img,
+          -(image.width * image.scaleX) / 2,
+          -(image.height * image.scaleY) / 2,
+          image.width * image.scaleX,
+          image.height * image.scaleY,
+        );
+        ctx.restore();
+      }
 
       // 6. Draw frame border (on top of everything)
       ctx.strokeStyle = template.layout.frame.color;
