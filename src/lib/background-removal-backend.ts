@@ -34,7 +34,8 @@ export const removeBackgroundBackend = async (imageData: string | Blob | File): 
         console.log(`Trying backend service at: ${baseUrl}`);
 
         // Check if service is available
-        const healthResponse = await fetch(`${baseUrl}/health`, {
+        const healthPath = baseUrl.includes('vercel.app') ? '/api/health' : '/health';
+        const healthResponse = await fetch(`${baseUrl}${healthPath}`, {
           method: 'GET',
           signal: AbortSignal.timeout(5000) // 5 second timeout
         });
@@ -76,7 +77,8 @@ export const removeBackgroundBackend = async (imageData: string | Blob | File): 
 
 // Remove background from data URL
 const removeBackgroundFromDataURL = async (baseUrl: string, dataUrl: string): Promise<string> => {
-  const response = await fetch(`${baseUrl}/remove-background-url`, {
+  const apiPath = baseUrl.includes('vercel.app') ? '/api/remove-background-url' : '/remove-background-url';
+  const response = await fetch(`${baseUrl}${apiPath}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -106,7 +108,8 @@ const removeBackgroundFromFile = async (baseUrl: string, file: Blob | File): Pro
   const formData = new FormData();
   formData.append('image', file);
 
-  const response = await fetch(`${baseUrl}/remove-background`, {
+  const apiPath = baseUrl.includes('vercel.app') ? '/api/remove-background' : '/remove-background';
+  const response = await fetch(`${baseUrl}${apiPath}`, {
     method: 'POST',
     body: formData,
     signal: AbortSignal.timeout(30000) // 30 second timeout
@@ -146,7 +149,8 @@ export const isBackendServiceAvailable = async (): Promise<{
 
   for (const baseUrl of serviceUrls) {
     try {
-      const healthResponse = await fetch(`${baseUrl}/health`, {
+      const healthPath = baseUrl.includes('vercel.app') ? '/api/health' : '/health';
+      const healthResponse = await fetch(`${baseUrl}${healthPath}`, {
         method: 'GET',
         signal: AbortSignal.timeout(3000)
       });
@@ -154,7 +158,8 @@ export const isBackendServiceAvailable = async (): Promise<{
       if (healthResponse.ok) {
         try {
           // Try to get available models
-          const modelsResponse = await fetch(`${baseUrl}/models`, {
+          const modelsPath = baseUrl.includes('vercel.app') ? '/api/models' : '/models';
+          const modelsResponse = await fetch(`${baseUrl}${modelsPath}`, {
             signal: AbortSignal.timeout(3000)
           });
 
