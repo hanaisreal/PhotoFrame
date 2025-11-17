@@ -1613,25 +1613,25 @@ export const BoothView = ({ template }: BoothViewProps) => {
             ))}
           </div>
 
-          <div className="max-w-2xl mx-auto text-center relative z-10">
-            <h1 className="text-2xl font-bold text-slate-900 mb-8">
+          <div className="max-w-lg mx-auto text-center relative z-10 px-4">
+            <h1 className="text-xl font-bold text-slate-900 mb-4">
               {t("booth.finalResult")}
             </h1>
 
-            <div className="bg-white rounded-3xl p-8 shadow-sm ring-1 ring-slate-100">
-              <div className="max-w-md mx-auto">
+            <div className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-slate-100">
+              <div className="max-w-sm mx-auto">
                 <img
                   src={finalImage}
                   alt={t("booth.finalResult")}
-                  className="w-full h-auto rounded-2xl border border-slate-200 shadow-lg"
-                  style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                  className="w-full h-auto rounded-xl border border-slate-200 shadow-lg"
+                  style={{ maxHeight: '50vh', objectFit: 'contain' }}
                 />
               </div>
 
-              <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+              <div className="mt-4 flex flex-col sm:flex-row justify-center gap-2">
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                   onClick={handleDownload}
                 >
                   <Download className="h-4 w-4" />
@@ -1639,7 +1639,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 </button>
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
                   onClick={() => {
                     // Navigate to editor with current template
                     window.location.href = `/editor?slug=${template.slug}`;
@@ -1650,7 +1650,7 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 </button>
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
                     setFinalImage(null);
                     setStatus("waiting");
