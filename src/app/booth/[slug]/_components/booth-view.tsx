@@ -17,6 +17,7 @@ import {
   Camera,
   Check,
   Download,
+  Edit,
   Loader2,
   RotateCcw,
 } from "lucide-react";
@@ -1635,6 +1636,17 @@ export const BoothView = ({ template }: BoothViewProps) => {
                 >
                   <Download className="h-4 w-4" />
                   {t("booth.downloadPNG")}
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  onClick={() => {
+                    // Navigate to editor with current template
+                    window.location.href = `/editor?slug=${template.slug}`;
+                  }}
+                >
+                  <Edit className="h-4 w-4" />
+                  {t("booth.editFrame") || "Edit Frame"}
                 </button>
                 <button
                   type="button"
