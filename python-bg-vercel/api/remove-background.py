@@ -2,8 +2,11 @@ from http.server import BaseHTTPRequestHandler
 import json
 import base64
 import io
-import requests
 import urllib.parse
+try:
+    import rembg
+except ImportError:
+    rembg = None
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -68,15 +71,12 @@ class handler(BaseHTTPRequestHandler):
                 # Assume raw image data
                 input_data = post_data
 
-            # Process with HuggingFace API
-            api_url = "https://api-inference.huggingface.co/models/briaai/RMBG-1.4"
+            # Process with rembg library
+            if rembg is None:
+                raise Exception("rembg library not available")
 
-            response = requests.post(api_url, data=input_data, timeout=30)
-
-            if response.status_code != 200:
-                raise Exception(f"HuggingFace API error: {response.status_code}")
-
-            output_data = response.content
+            # Use rembg to remove background
+            output_data = rembg.remove(input_data)
 
             # Convert to base64
             output_b64 = base64.b64encode(output_data).decode('utf-8')

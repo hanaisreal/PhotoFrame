@@ -3,6 +3,7 @@ import json
 import base64
 import io
 import requests
+import os
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -51,15 +52,28 @@ class handler(BaseHTTPRequestHandler):
                 }).encode())
                 return
 
-            # Process with HuggingFace API
-            api_url = "https://api-inference.huggingface.co/models/briaai/RMBG-1.4"
+            # Process with HuggingFace API (working endpoint)
+            headers = {"Authorization": f"Bearer {os.environ.get('NEXT_PUBLIC_HUGGINGFACE_TOKEN', '')}"}
 
-            response = requests.post(api_url, data=input_data, timeout=30)
+            # Try multiple working models
+            api_urls = [
+                "https://api-inference.huggingface.co/models/briaai/RMBG-1.4",
+                "https://api-inference.huggingface.co/models/ZhengPeng7/BiRefNet_T4P",
+                "https://api-inference.huggingface.co/models/Xenova/modnet"
+            ]
 
-            if response.status_code != 200:
-                raise Exception(f"HuggingFace API error: {response.status_code}")
+            output_data = None
+            for api_url in api_urls:
+                try:
+                    response = requests.post(api_url, headers=headers, data=input_data, timeout=30)
+                    if response.status_code == 200:
+                        output_data = response.content
+                        break
+                except:
+                    continue
 
-            output_data = response.content
+            if output_data is None:
+                raise Exception("All HuggingFace models failed")
 
             # Convert to base64
             output_b64 = base64.b64encode(output_data).decode('utf-8')
