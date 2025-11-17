@@ -14,17 +14,10 @@ export const removeBackgroundBackend = async (imageData: string | Blob | File): 
   try {
     console.log('Using Python rembg backend service...');
 
-    // Try Railway first, then fallbacks
+    // Use Railway service only - it's working perfectly!
     const serviceUrls = [
-      process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app',  // Railway deployment (primary)
-      'http://localhost:5001'  // Local development (fallback)
-    ].filter((url): url is string => Boolean(url)).filter(url => {
-      // Filter out localhost in production
-      if (process.env.NODE_ENV === 'production' && url.includes('localhost')) {
-        return false;
-      }
-      return true;
-    });
+      process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app'  // Railway deployment with rembg
+    ];
 
     let lastError: Error | null = null;
 
