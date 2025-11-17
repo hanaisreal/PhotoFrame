@@ -169,7 +169,7 @@ if __name__ == '__main__':
     # Initialize rembg
     if init_rembg():
         import os
-        port = int(os.environ.get('PORT', 8000))  # Railway uses port 8000
+        port = int(os.environ.get('PORT', 5001))  # Railway will set PORT env variable
         logger.info(f"🚀 Starting Flask server on port {port}")
         app.run(host='0.0.0.0', port=port, debug=False)
     else:
