@@ -22,8 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Expose port (Railway will set PORT env var)
-EXPOSE $PORT
+# Expose port 8000 for Railway
+EXPOSE 8000
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

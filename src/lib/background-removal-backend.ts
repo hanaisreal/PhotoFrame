@@ -14,12 +14,11 @@ export const removeBackgroundBackend = async (imageData: string | Blob | File): 
   try {
     console.log('Using Python rembg backend service...');
 
-    // Try deployed services first for production, local for development
+    // Try Railway first, then fallbacks
     const serviceUrls = [
-      process.env.NEXT_PUBLIC_VERCEL_BG_URL || 'https://python-bg-vercel.vercel.app',  // Vercel deployment (primary)
-      process.env.BACKGROUND_REMOVAL_SERVICE_URL || 'https://photoframe-production.up.railway.app',  // Railway fallback
-      'http://localhost:5001'  // Local development (last resort)
-    ].filter(url => {
+      process.env.BACKGROUND_REMOVAL_SERVICE_URL,  // Railway deployment (primary)
+      'http://localhost:5001'  // Local development (fallback)
+    ].filter(url => url).filter(url => {
       // Filter out localhost in production
       if (process.env.NODE_ENV === 'production' && url.includes('localhost')) {
         return false;
