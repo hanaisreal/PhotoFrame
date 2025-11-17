@@ -6,7 +6,7 @@
  * Uses u2netp model (4.7MB) for optimal performance and reliability.
  */
 
-import { removeBackgroundBackend } from './background-removal-backend';
+import { removeBackgroundBackend, isBackendServiceAvailable } from './background-removal-backend';
 
 export const removeBackgroundClient = async (imageData: string | Blob | File): Promise<string> => {
   try {
