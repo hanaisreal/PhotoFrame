@@ -18,7 +18,7 @@ export const removeBackgroundBackend = async (imageData: string | Blob | File): 
     const serviceUrls = [
       process.env.BACKGROUND_REMOVAL_SERVICE_URL,  // Railway deployment (primary)
       'http://localhost:5001'  // Local development (fallback)
-    ].filter(url => url).filter(url => {
+    ].filter((url): url is string => Boolean(url)).filter(url => {
       // Filter out localhost in production
       if (process.env.NODE_ENV === 'production' && url.includes('localhost')) {
         return false;
