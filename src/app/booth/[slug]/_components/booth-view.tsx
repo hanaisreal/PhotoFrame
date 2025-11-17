@@ -22,7 +22,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 
-import type { FrameSlot, FrameTemplate } from "@/types/frame";
+import type { FrameSlot, FrameTemplate, ImageElement } from "@/types/frame";
 import { useLanguage } from "@/contexts/language-context";
 
 interface BoothViewProps {
@@ -1139,17 +1139,36 @@ export const BoothView = ({ template }: BoothViewProps) => {
       });
 
 
+      const slotMap = new Map(slots.map((slot) => [slot.id, slot]));
+      const slotImagesBySlot = template.images.reduce<Map<string, ImageElement[]>>((map, image) => {
+        if (!image.slotId || image.isVisible === false) {
+          return map;
+        }
+        if (!slotMap.has(image.slotId)) {
+          console.warn(`🖼️ Template image ${image.id} references unknown slot ${image.slotId}`);
+          return map;
+        }
+        if (!map.has(image.slotId)) {
+          map.set(image.slotId, []);
+        }
+        map.get(image.slotId)!.push(image);
+        return map;
+      }, new Map());
+
       // 4. Draw slot images (photos) - IN FRONT of decorative elements
       await Promise.all(
         slots.map(async (slot) => {
           const shotIndex = slotAssignments[slot.id];
           if (shotIndex === null || shotIndex === undefined) {
+            console.log(`🖼️ Slot ${slot.id} has no assigned shot, skipping`);
             return;
           }
           const capture = capturedShots[shotIndex];
           if (!capture) {
+            console.log(`🖼️ Slot ${slot.id} shot ${shotIndex} is empty, skipping`);
             return;
           }
+          console.log(`🖼️ Drawing captured shot ${shotIndex} to slot ${slot.id}`);
           const image = await loadImage(capture, t);
           ctx.drawImage(
             image,
@@ -1165,22 +1184,64 @@ export const BoothView = ({ template }: BoothViewProps) => {
         }),
       );
 
-      // 5. Draw floating images from template data (background-removed images, etc.) - ON TOP of slot photos
-      await Promise.all(
-        template.images.filter(img => !img.slotId).map(async (image) => {
+      // 4.5. Draw template images assigned to slots (background-removed images, etc.) - Also in slot positions
+      for (const slot of slots) {
+        const slotImages = slotImagesBySlot.get(slot.id);
+        if (!slotImages?.length) {
+          continue;
+        }
+        const sortedSlotImages = [...slotImages].sort(
+          (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+        );
+        for (const image of sortedSlotImages) {
+          console.log(`🖼️ Drawing template image ${image.id} to slot ${slot.id}`);
           const img = await loadImage(image.dataUrl, t);
           ctx.save();
-          ctx.translate(image.x + (image.width * image.scaleX) / 2, image.y + (image.height * image.scaleY) / 2);
+          if (image.clipToSlot) {
+            ctx.beginPath();
+            ctx.rect(slot.x, slot.y, slot.width, slot.height);
+            ctx.clip();
+          }
+          ctx.globalAlpha = image.opacity ?? 1;
+          const drawX = slot.x + image.x;
+          const drawY = slot.y + image.y;
+          ctx.translate(
+            drawX + (image.width * image.scaleX) / 2,
+            drawY + (image.height * image.scaleY) / 2,
+          );
           ctx.rotate((image.rotation * Math.PI) / 180);
           ctx.drawImage(
             img,
             -(image.width * image.scaleX) / 2,
             -(image.height * image.scaleY) / 2,
             image.width * image.scaleX,
-            image.height * image.scaleY
+            image.height * image.scaleY,
           );
           ctx.restore();
-        })
+        }
+      }
+
+      // 5. Draw floating images from template data (background-removed images, etc.) - ON TOP of slot photos
+      await Promise.all(
+        template.images
+          .filter((img) => !img.slotId && (img.isVisible ?? true))
+          .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+          .map(async (image) => {
+            console.log(`🖼️ Drawing floating template image ${image.id} at position (${image.x}, ${image.y})`);
+            const img = await loadImage(image.dataUrl, t);
+            ctx.save();
+            ctx.translate(image.x + (image.width * image.scaleX) / 2, image.y + (image.height * image.scaleY) / 2);
+            ctx.rotate((image.rotation * Math.PI) / 180);
+            ctx.globalAlpha = image.opacity ?? 1;
+            ctx.drawImage(
+              img,
+              -(image.width * image.scaleX) / 2,
+              -(image.height * image.scaleY) / 2,
+              image.width * image.scaleX,
+              image.height * image.scaleY
+            );
+            ctx.restore();
+          })
       );
 
       // 6. Draw frame border (on top of everything)
